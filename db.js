@@ -116,7 +116,7 @@ const Order = sequelize.define("Order", {
     comment: '下单用户OpenID'
   },
   stationId: {
-    type: DataTypes.STRING,
+    type: DataTypes.INTEGER,
     allowNull: false,
     comment: '所属快递站ID'
   },
@@ -190,24 +190,26 @@ Order.belongsTo(Station, {
   targetKey: 'stationId'
 });
 
-// 修改初始化方法，添加错误处理
+// 修改初始化方法，调整同步顺序
 async function init() {
   try {
     // 测试数据库连接
     await sequelize.authenticate();
     console.log('数据库连接成功');
 
-    // 同步所有模型
+    // 按照依赖关系顺序同步模型
     await Counter.sync({ alter: true });
     await User.sync({ alter: true });
-    await DeliveryAddress.sync({ alter: true });
     await Station.sync({ alter: true });
+    // DeliveryAddress 依赖 User
+    await DeliveryAddress.sync({ alter: true });
+    // Order 依赖 User 和 Station
     await Order.sync({ alter: true });
     
     console.log('所有模型同步完成');
   } catch (error) {
     console.error('数据库初始化失败:', error);
-    throw error; // 向上抛出错误，让调用方处理
+    throw error;
   }
 }
 
