@@ -8,7 +8,18 @@ const [host, port] = MYSQL_ADDRESS.split(":");
 const sequelize = new Sequelize("nodejs_demo", MYSQL_USERNAME, MYSQL_PASSWORD, {
   host,
   port,
-  dialect: "mysql" /* one of 'mysql' | 'mariadb' | 'postgres' | 'mssql' */,
+  dialect: "mysql",
+  // 添加连接池配置
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 30000,
+    idle: 10000
+  },
+  // 添加错误重试配置
+  retry: {
+    max: 3
+  }
 });
 
 // 定义数据模型
@@ -179,13 +190,25 @@ Order.belongsTo(Station, {
   targetKey: 'stationId'
 });
 
-// 修改初始化方法，添加快递站表同步
+// 修改初始化方法，添加错误处理
 async function init() {
-  await Counter.sync({ alter: true });
-  await User.sync({ alter: true });
-  await DeliveryAddress.sync({ alter: true });
-  await Station.sync({ alter: true });
-  await Order.sync({ alter: true });
+  try {
+    // 测试数据库连接
+    await sequelize.authenticate();
+    console.log('数据库连接成功');
+
+    // 同步所有模型
+    await Counter.sync({ alter: true });
+    await User.sync({ alter: true });
+    await DeliveryAddress.sync({ alter: true });
+    await Station.sync({ alter: true });
+    await Order.sync({ alter: true });
+    
+    console.log('所有模型同步完成');
+  } catch (error) {
+    console.error('数据库初始化失败:', error);
+    throw error; // 向上抛出错误，让调用方处理
+  }
 }
 
 // 修改导出，添加 Station 模型
