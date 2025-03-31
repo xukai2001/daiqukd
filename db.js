@@ -211,6 +211,7 @@ Order.belongsTo(Courier, {
   targetKey: 'id'
 });
 // 定义配送员数据模型
+// Move Courier model definition before its usage
 const Courier = sequelize.define("Courier", {
   phone: {
     type: DataTypes.STRING(20),
@@ -234,6 +235,16 @@ const Courier = sequelize.define("Courier", {
     defaultValue: '接单中',
     comment: '配送员状态：接单中/停止接单'
   }
+});
+
+// Then keep the associations that use Courier
+Courier.hasMany(Order, {
+  foreignKey: 'courierId',
+  sourceKey: 'id'
+});
+Order.belongsTo(Courier, {
+  foreignKey: 'courierId',
+  targetKey: 'id'
 });
 // 定义管理员数据模型
 const Admin = sequelize.define("Admin", {
