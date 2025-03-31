@@ -39,6 +39,12 @@ const User = sequelize.define("User", {
     unique: true,
     comment: '微信 OpenID',
   },
+  wxUnionId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true,
+    comment: '微信 UnionID',
+  },
   nickname: {
     type: DataTypes.STRING,
     allowNull: true,
@@ -148,6 +154,11 @@ const Order = sequelize.define("Order", {
     defaultValue: 'normal',
     comment: '物品类型：普通物品、贵重物品'
   },
+  courierId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: '关联的配送员ID'
+  }
 });
 
 // 建立用户和订单的关联关系
@@ -190,7 +201,61 @@ Order.belongsTo(Station, {
   targetKey: 'stationId'
 });
 
-// 修改初始化方法，调整同步顺序
+// 建立配送员和订单的关联关系
+Courier.hasMany(Order, {
+  foreignKey: 'courierId',
+  sourceKey: 'id'
+});
+Order.belongsTo(Courier, {
+  foreignKey: 'courierId',
+  targetKey: 'id'
+});
+// 定义配送员数据模型
+const Courier = sequelize.define("Courier", {
+  phone: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    unique: true,
+    comment: '配送员手机号'
+  },
+  wxOpenId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: '微信OpenID'
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    comment: '配送员姓名'
+  },
+  status: {
+    type: DataTypes.ENUM('接单中', '停止接单'),
+    allowNull: false,
+    defaultValue: '接单中',
+    comment: '配送员状态：接单中/停止接单'
+  }
+});
+// 定义管理员数据模型
+const Admin = sequelize.define("Admin", {
+  username: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    unique: true,
+    comment: '管理员账号'
+  },
+  password: {
+    type: DataTypes.STRING(64),
+    allowNull: false,
+    comment: '加密后的密码',
+    set(value) {
+      // 使用bcrypt加密密码
+      const salt = bcrypt.genSaltSync(10);
+      this.setDataValue('password', bcrypt.hashSync(value, salt));
+    }
+  }
+});
+
+// 修改初始化方法，添加默认管理员账号
 async function init() {
   try {
     // 测试数据库连接
@@ -200,11 +265,43 @@ async function init() {
     // 按照依赖关系顺序同步模型
     await Counter.sync({ alter: true });
     await User.sync({ alter: true });
+    await Courier.sync({ alter: true });
     await Station.sync({ alter: true });
     // DeliveryAddress 依赖 User
     await DeliveryAddress.sync({ alter: true });
     // Order 依赖 User 和 Station
     await Order.sync({ alter: true });
+    
+    console.log('所有模型同步完成');
+    
+    // 同步模型
+    await Admin.sync({ alter: true });
+    
+    // 创建默认管理员账号
+    const adminCount = await Admin.count();
+    if (adminCount === 0) {
+      await Admin.create({
+        username: 'admin',
+        password: 'admin'  // 会自动加密
+      });
+      console.log('已创建默认管理员账号: admin/admin');
+    }
+    
+    console.log('所有模型同步完成');
+    
+    // 同步配送员模型
+    await Courier.sync({ alter: true });
+    
+    // 创建默认配送员账号（如果需要）
+    const courierCount = await Courier.count();
+    if (courierCount === 0) {
+      await Courier.create({
+        phone: '13800000000',
+        name: '默认配送员',
+        status: '接单中'
+      });
+      console.log('已创建默认配送员账号');
+    }
     
     console.log('所有模型同步完成');
   } catch (error) {
@@ -213,12 +310,14 @@ async function init() {
   }
 }
 
-// 修改导出，添加 Station 模型
+// 修改导出，确保包含 Courier 模型
 module.exports = {
   init,
   Counter,
   User,
+  Courier,
   DeliveryAddress,
   Order,
-  Station
+  Station,
+  Admin
 };
