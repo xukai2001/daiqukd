@@ -55,6 +55,16 @@ app.get("/api/wx_openid", async (req, res) => {
 // 用户注册/登录
 app.post("/api/user/login", async (req, res) => {
   const { wxOpenId } = req.body;
+  
+  // 参数校验
+  if (!wxOpenId) {
+    res.send({
+      code: -1,
+      message: `无效的请求参数，当前请求体: ${JSON.stringify(req.body)}`
+    });
+    return;
+  }
+
   try {
     let user = await User.findOne({ where: { wxOpenId } });
     if (!user) {
@@ -65,9 +75,10 @@ app.post("/api/user/login", async (req, res) => {
       data: user,
     });
   } catch (e) {
+    console.error('登录失败:', e);
     res.send({
       code: -1,
-      message: "登录失败",
+      message: `登录失败，请求体: ${JSON.stringify(req.body)}, 错误信息: ${e.message}`
     });
   }
 });
