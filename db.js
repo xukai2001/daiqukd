@@ -30,7 +30,53 @@ const Counter = sequelize.define("Counter", {
     defaultValue: 1,
   },
 });
+// 定义配送员数据模型 (添加在其他模型定义之后，关联关系之前)
+const Courier = sequelize.define("Courier", {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+    comment: '配送员ID'
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    comment: '配送员姓名'
+  },
+  phone: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    unique: true,
+    comment: '手机号'
+  },
+  status: {
+    type: DataTypes.ENUM('接单中', '休息中'),
+    allowNull: false,
+    defaultValue: '休息中',
+    comment: '配送员状态'
+  }
+});
 
+// 定义管理员数据模型
+const Admin = sequelize.define("Admin", {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+    comment: '管理员ID'
+  },
+  username: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+    comment: '用户名'
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    comment: '密码'
+  }
+});
 // 定义用户数据模型
 const User = sequelize.define("User", {
   wxOpenId: {
@@ -210,8 +256,7 @@ Order.belongsTo(Courier, {
   foreignKey: 'courierId',
   targetKey: 'id'
 });
-// 定义配送员数据模型
-// ... 其他导入和配置保持不变 ...
+
 
 // 修改 init 函数，移除重复的同步和日志
 async function init() {
