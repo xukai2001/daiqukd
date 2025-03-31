@@ -211,65 +211,11 @@ Order.belongsTo(Courier, {
   targetKey: 'id'
 });
 // 定义配送员数据模型
-// Move Courier model definition before its usage
-const Courier = sequelize.define("Courier", {
-  phone: {
-    type: DataTypes.STRING(20),
-    allowNull: false,
-    unique: true,
-    comment: '配送员手机号'
-  },
-  wxOpenId: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    comment: '微信OpenID'
-  },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    comment: '配送员姓名'
-  },
-  status: {
-    type: DataTypes.ENUM('接单中', '停止接单'),
-    allowNull: false,
-    defaultValue: '接单中',
-    comment: '配送员状态：接单中/停止接单'
-  }
-});
+// ... 其他导入和配置保持不变 ...
 
-// Then keep the associations that use Courier
-Courier.hasMany(Order, {
-  foreignKey: 'courierId',
-  sourceKey: 'id'
-});
-Order.belongsTo(Courier, {
-  foreignKey: 'courierId',
-  targetKey: 'id'
-});
-// 定义管理员数据模型
-const Admin = sequelize.define("Admin", {
-  username: {
-    type: DataTypes.STRING(20),
-    allowNull: false,
-    unique: true,
-    comment: '管理员账号'
-  },
-  password: {
-    type: DataTypes.STRING(64),
-    allowNull: false,
-    comment: '加密后的密码',
-    set(value) {
-      // 使用bcrypt加密密码
-      const salt = bcrypt.genSaltSync(10);
-      this.setDataValue('password', bcrypt.hashSync(value, salt));
-    }
-  }
-});
-
-// 修改初始化方法，添加默认管理员账号
+// 修改 init 函数，移除重复的同步和日志
 async function init() {
   try {
-    // 测试数据库连接
     await sequelize.authenticate();
     console.log('数据库连接成功');
 
@@ -278,33 +224,26 @@ async function init() {
     await User.sync({ alter: true });
     await Courier.sync({ alter: true });
     await Station.sync({ alter: true });
-    // DeliveryAddress 依赖 User
     await DeliveryAddress.sync({ alter: true });
-    // Order 依赖 User 和 Station
     await Order.sync({ alter: true });
+    await Admin.sync({ alter: true });
     
     console.log('所有模型同步完成');
     
-    // 同步模型
-    await Admin.sync({ alter: true });
+    // 创建默认账号（合并到一个代码块）
+    const [adminCount, courierCount] = await Promise.all([
+      Admin.count(),
+      Courier.count()
+    ]);
     
-    // 创建默认管理员账号
-    const adminCount = await Admin.count();
     if (adminCount === 0) {
       await Admin.create({
         username: 'admin',
-        password: 'admin'  // 会自动加密
+        password: 'admin'
       });
       console.log('已创建默认管理员账号: admin/admin');
     }
     
-    console.log('所有模型同步完成');
-    
-    // 同步配送员模型
-    await Courier.sync({ alter: true });
-    
-    // 创建默认配送员账号（如果需要）
-    const courierCount = await Courier.count();
     if (courierCount === 0) {
       await Courier.create({
         phone: '13800000000',
@@ -314,7 +253,6 @@ async function init() {
       console.log('已创建默认配送员账号');
     }
     
-    console.log('所有模型同步完成');
   } catch (error) {
     console.error('数据库初始化失败:', error);
     throw error;
