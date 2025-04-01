@@ -445,57 +445,79 @@ app.get("/api/orders/:wxOpenId", async (req, res) => {
       return;
     }
 
+    // 先验证用户是否存在
+    const user = await User.findOne({ where: { wxOpenId } });
+    if (!user) {
+      res.send({
+        code: -1,
+        message: "用户不存在"
+      });
+      return;
+    }
+
     // 构建查询条件
     const where = { wxOpenId };
     if (status) {
       where.status = status;
     }
 
-    // 查询订单总数
-    const total = await Order.count({ where });
+    try {
+      // 查询订单总数
+      const total = await Order.count({ where });
 
-    // 分页查询订单
-    const orders = await Order.findAll({
-      where,
-      order: [['orderTime', 'DESC']],
-      limit: parseInt(pageSize),
-      offset: (parseInt(page) - 1) * parseInt(pageSize),
-      include: [
-        {
-          model: DeliveryTimeSlot,
-          attributes: ['timeSlot']
-        },
-        {
-          model: Station,
-          attributes: ['stationName', 'phone']
-        },
-        {
-          model: Courier,
-          attributes: ['name', 'phone']
-        },
-        {
-          model: OrderOperationLog,
-          attributes: ['operationTime', 'description'],
-          order: [['operationTime', 'DESC']]
+      // 分页查询订单
+      const orders = await Order.findAll({
+        where,
+        order: [['orderTime', 'DESC']],
+        limit: parseInt(pageSize),
+        offset: (parseInt(page) - 1) * parseInt(pageSize),
+        include: [
+          {
+            model: DeliveryTimeSlot,
+            attributes: ['timeSlot'],
+            required: false  // 使用左连接
+          },
+          {
+            model: Station,
+            attributes: ['stationName', 'phone'],
+            required: false
+          },
+          {
+            model: Courier,
+            attributes: ['name', 'phone'],
+            required: false
+          },
+          {
+            model: OrderOperationLog,
+            attributes: ['operationTime', 'description'],
+            required: false,
+            order: [['operationTime', 'DESC']]
+          }
+        ]
+      });
+
+      res.send({
+        code: 0,
+        data: {
+          total,
+          list: orders,
+          page: parseInt(page),
+          pageSize: parseInt(pageSize),
+          totalPages: Math.ceil(total / pageSize)
         }
-      ]
-    });
-
-    res.send({
-      code: 0,
-      data: {
-        total,
-        list: orders,
-        page: parseInt(page),
-        pageSize: parseInt(pageSize),
-        totalPages: Math.ceil(total / pageSize)
-      }
-    });
+      });
+    } catch (queryError) {
+      console.error('查询订单失败:', queryError);
+      res.send({
+        code: -1,
+        message: `查询订单失败: ${queryError.message}`
+      });
+    }
   } catch (e) {
     console.error('获取订单列表失败:', e);
     res.send({
       code: -1,
-      message: "获取订单列表失败"
+      message: `获取订单列表失败: ${e.message}`
     });
   }
 });
