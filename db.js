@@ -141,8 +141,42 @@ DeliveryAddress.belongsTo(User, {
   foreignKey: 'wxOpenId',
   targetKey: 'wxOpenId'
 });
+// 定义快递站模型
+const Station = sequelize.define("Station", {
+  stationId: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+    comment: '快递站ID'
+  },
+  stationName: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    comment: '快递站名称'
+  },
+  phone: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    comment: '快递站电话'
+  }
+});
+// 定义配送时间段模型（添加在Station模型之后，Order模型之前）
+const DeliveryTimeSlot = sequelize.define("DeliveryTimeSlot", {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+    comment: '时间段ID'
+  },
+  timeSlot: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+    comment: '配送时间段，如：09:00-12:00'
+  }
+});
 
-// 定义订单模型
+// 修改Order模型中的deliveryTimeSlot字段
 const Order = sequelize.define("Order", {
   orderNo: {
     type: DataTypes.STRING(32),
@@ -178,9 +212,9 @@ const Order = sequelize.define("Order", {
     comment: '取件码'
   },
   deliveryTimeSlot: {
-    type: DataTypes.STRING,
+    type: DataTypes.INTEGER,  // 修改为INTEGER类型
     allowNull: false,
-    comment: '配送时间段'
+    comment: '配送时间段ID'
   },
   amount: {
     type: DataTypes.DECIMAL(10, 2),
@@ -217,26 +251,6 @@ Order.belongsTo(User, {
   targetKey: 'wxOpenId'
 });
 
-// 定义快递站模型
-const Station = sequelize.define("Station", {
-  stationId: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
-    comment: '快递站ID'
-  },
-  stationName: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    comment: '快递站名称'
-  },
-  phone: {
-    type: DataTypes.STRING(20),
-    allowNull: true,
-    comment: '快递站电话'
-  }
-});
-
 // 建立快递站和订单的关联关系
 Station.hasMany(Order, {
   foreignKey: 'stationId',
@@ -258,7 +272,43 @@ Order.belongsTo(Courier, {
 });
 
 
-// 修改 init 函数，移除重复的同步和日志
+// 定义订单操作记录模型（添加在Order模型之后）
+const OrderOperationLog = sequelize.define("OrderOperationLog", {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+    comment: '记录ID'
+  },
+  orderNo: {
+    type: DataTypes.STRING(32),
+    allowNull: false,
+    comment: '关联的订单编号'
+  },
+  operationTime: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW,
+    comment: '操作时间'
+  },
+  description: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    comment: '操作记录描述'
+  }
+});
+
+// 建立订单和操作记录的关联关系（添加在其他关联关系之后）
+Order.hasMany(OrderOperationLog, {
+  foreignKey: 'orderNo',
+  sourceKey: 'orderNo'
+});
+OrderOperationLog.belongsTo(Order, {
+  foreignKey: 'orderNo',
+  targetKey: 'orderNo'
+});
+
+// 在init函数中添加模型同步（在Order之后）
 async function init() {
   try {
     await sequelize.authenticate();
@@ -270,7 +320,9 @@ async function init() {
     await Courier.sync({ alter: true });
     await Station.sync({ alter: true });
     await DeliveryAddress.sync({ alter: true });
+    await DeliveryTimeSlot.sync({ alter: true });
     await Order.sync({ alter: true });
+    await OrderOperationLog.sync({ alter: true }); // 添加这一行
     await Admin.sync({ alter: true });
     
     console.log('所有模型同步完成');
@@ -304,7 +356,7 @@ async function init() {
   }
 }
 
-// 修改导出，确保包含 Courier 模型
+// 修改导出，添加OrderOperationLog模型
 module.exports = {
   init,
   Counter,
@@ -313,5 +365,7 @@ module.exports = {
   DeliveryAddress,
   Order,
   Station,
-  Admin
+  Admin,
+  DeliveryTimeSlot,
+  OrderOperationLog  // 添加这一行
 };

@@ -2,7 +2,8 @@ const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
-const { init: initDB, Counter, User, DeliveryAddress, Order, Station } = require("./db");
+// 修改引入语句，添加 OrderOperationLog
+const { init: initDB, Counter, User, DeliveryAddress, Order, Station, DeliveryTimeSlot, Courier, OrderOperationLog } = require("./db");
 
 const logger = morgan("tiny");
 
@@ -327,6 +328,173 @@ app.get("/api/station/:stationId", async (req, res) => {
     res.send({
       code: -1,
       message: "获取快递站信息失败"
+    });
+  }
+});
+
+// 创建订单
+app.post("/api/order", async (req, res) => {
+  const { 
+    wxOpenId,           // 下单用户openid
+    stationId,          // 所属快递站ID
+    pickupCode,         // 取件码
+    deliveryTimeSlot,   // 配送时间段ID
+    orderType,          // 订单类型
+    itemType           // 物品类型
+  } = req.body;
+  
+  try {
+    // 参数校验
+    if (!wxOpenId || !stationId || !pickupCode || !deliveryTimeSlot || !orderType || !itemType) {
+      res.send({
+        code: -1,
+        message: "缺少必要参数"
+      });
+      return;
+    }
+
+    // 验证用户是否存在
+    const user = await User.findOne({ where: { wxOpenId } });
+    if (!user) {
+      res.send({
+        code: -1,
+        message: "用户不存在"
+      });
+      return;
+    }
+
+    // 验证快递站是否存在
+    const station = await Station.findByPk(stationId);
+    if (!station) {
+      res.send({
+        code: -1,
+        message: "快递站不存在"
+      });
+      return;
+    }
+
+    // 验证配送时间段是否存在
+    const timeSlot = await DeliveryTimeSlot.findByPk(deliveryTimeSlot);
+    if (!timeSlot) {
+      res.send({
+        code: -1,
+        message: "配送时间段不存在"
+      });
+      return;
+    }
+
+    // 获取默认配送员
+    const courier = await Courier.findOne({
+      where: {
+        status: '接单中'
+      }
+    });
+
+    // 生成订单编号（年月日时分秒+4位随机数）
+    const now = new Date();
+    const dateStr = now.getFullYear().toString() +
+                   (now.getMonth() + 1).toString().padStart(2, '0') +
+                   now.getDate().toString().padStart(2, '0') +
+                   now.getHours().toString().padStart(2, '0') +
+                   now.getMinutes().toString().padStart(2, '0') +
+                   now.getSeconds().toString().padStart(2, '0');
+    const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    const orderNo = dateStr + randomNum;
+
+    // 创建订单
+    const order = await Order.create({
+      orderNo,                    // 系统生成的订单编号
+      status: 'waiting_pickup',   // 默认待取件状态
+      orderTime: now,             // 系统生成的下单时间
+      wxOpenId,                   // 下单用户openid
+      stationId,                  // 所属快递站ID
+      pickupCode,                 // 取件码
+      deliveryTimeSlot,           // 配送时间段ID
+      amount: 2.00,               // 默认金额2.00
+      orderType,                  // 订单类型
+      itemType,                   // 物品类型
+      courierId: courier ? courier.id : null  // 关联默认配送员
+    });
+
+    res.send({
+      code: 0,
+      data: order
+    });
+  } catch (e) {
+    console.error('创建订单失败:', e);
+    res.send({
+      code: -1,
+      message: `创建订单失败: ${e.message}`
+    });
+  }
+});
+
+// 修改获取用户订单列表接口
+app.get("/api/orders/:wxOpenId", async (req, res) => {
+  const { wxOpenId } = req.params;
+  const { status, page = 1, pageSize = 20 } = req.query;
+  
+  try {
+    // 参数校验
+    if (!wxOpenId) {
+      res.send({
+        code: -1,
+        message: "用户ID不能为空"
+      });
+      return;
+    }
+
+    // 构建查询条件
+    const where = { wxOpenId };
+    if (status) {
+      where.status = status;
+    }
+
+    // 查询订单总数
+    const total = await Order.count({ where });
+
+    // 分页查询订单
+    const orders = await Order.findAll({
+      where,
+      order: [['orderTime', 'DESC']],
+      limit: parseInt(pageSize),
+      offset: (parseInt(page) - 1) * parseInt(pageSize),
+      include: [
+        {
+          model: DeliveryTimeSlot,
+          attributes: ['timeSlot']
+        },
+        {
+          model: Station,
+          attributes: ['stationName', 'phone']
+        },
+        {
+          model: Courier,
+          attributes: ['name', 'phone']
+        },
+        {
+          model: OrderOperationLog,
+          attributes: ['operationTime', 'description'],
+          order: [['operationTime', 'DESC']]
+        }
+      ]
+    });
+
+    res.send({
+      code: 0,
+      data: {
+        total,
+        list: orders,
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        totalPages: Math.ceil(total / pageSize)
+      }
+    });
+  } catch (e) {
+    console.error('获取订单列表失败:', e);
+    res.send({
+      code: -1,
+      message: "获取订单列表失败"
     });
   }
 });
