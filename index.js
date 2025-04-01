@@ -308,6 +308,7 @@ app.get("/api/stations", async (req, res) => {
   }
 });
 
+
 // 获取快递站详情
 app.get("/api/station/:stationId", async (req, res) => {
   const { stationId } = req.params;
@@ -495,6 +496,25 @@ app.get("/api/orders/:wxOpenId", async (req, res) => {
     res.send({
       code: -1,
       message: "获取订单列表失败"
+    });
+  }
+});
+
+// 获取配送时间段列表
+app.get("/api/delivery-time-slots", async (req, res) => {
+  try {
+    const timeSlots = await DeliveryTimeSlot.findAll({
+      order: [['timeSlot', 'ASC']] // 按时间段升序排列
+    });
+    res.send({
+      code: 0,
+      data: timeSlots
+    });
+  } catch (e) {
+    console.error('获取配送时间段列表失败:', e);
+    res.send({
+      code: -1,
+      message: "获取配送时间段列表失败"
     });
   }
 });
