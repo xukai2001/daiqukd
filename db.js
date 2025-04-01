@@ -298,6 +298,16 @@ const OrderOperationLog = sequelize.define("OrderOperationLog", {
   }
 });
 
+// 建立订单和配送时间段的关联关系（添加在其他关联关系之后）
+Order.belongsTo(DeliveryTimeSlot, {
+  foreignKey: 'deliveryTimeSlot',
+  targetKey: 'id'
+});
+DeliveryTimeSlot.hasMany(Order, {
+  foreignKey: 'deliveryTimeSlot',
+  sourceKey: 'id'
+});
+
 // 建立订单和操作记录的关联关系（添加在其他关联关系之后）
 Order.hasMany(OrderOperationLog, {
   foreignKey: 'orderNo',
