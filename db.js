@@ -185,10 +185,10 @@ const Order = sequelize.define("Order", {
     comment: '订单编号'
   },
   status: {
-    type: DataTypes.ENUM('waiting_pickup', 'waiting_delivery', 'cancelled', 'waiting_payment', 'in_custody'),
+    type: DataTypes.ENUM('waiting_pickup', 'waiting_delivery', 'cancelled', 'waiting_payment', 'in_custody', 'completed'),
     allowNull: false,
     defaultValue: 'waiting_pickup',
-    comment: '订单状态：待取件、待配送、已取消、待支付、代保管'
+    comment: '订单状态：待取件、待配送、已取消、待支付、代保管、已完成'
   },
   orderTime: {
     type: DataTypes.DATE,
@@ -233,6 +233,11 @@ const Order = sequelize.define("Order", {
     allowNull: false,
     defaultValue: 'normal',
     comment: '物品类型：普通物品、贵重物品'
+  },
+  phoneTail: {  // 新增手机尾号字段
+    type: DataTypes.STRING(4),
+    allowNull: false,
+    comment: '手机尾号'
   },
   courierId: {
     type: DataTypes.INTEGER,

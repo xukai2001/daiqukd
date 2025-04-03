@@ -341,12 +341,13 @@ app.post("/api/order", async (req, res) => {
     pickupCode,         // 取件码
     deliveryTimeSlot,   // 配送时间段ID
     orderType,          // 订单类型
-    itemType           // 物品类型
+    itemType,           // 物品类型
+    phoneTail           // 新增手机尾号
   } = req.body;
   
   try {
     // 参数校验
-    if (!wxOpenId || !stationId || !pickupCode || !deliveryTimeSlot || !orderType || !itemType) {
+    if (!wxOpenId || !stationId || !pickupCode || !deliveryTimeSlot || !orderType || !itemType || !phoneTail) {
       res.send({
         code: -1,
         message: "缺少必要参数"
@@ -414,6 +415,7 @@ app.post("/api/order", async (req, res) => {
       amount: 2.00,               // 默认金额2.00
       orderType,                  // 订单类型
       itemType,                   // 物品类型
+      phoneTail,         // 新增手机尾号
       courierId: courier ? courier.id : null  // 关联默认配送员
     });
 
@@ -430,7 +432,7 @@ app.post("/api/order", async (req, res) => {
   }
 });
 
-// 修改获取用户订单列表接口
+// 获取用户订单列表接口
 app.get("/api/orders/:wxOpenId", async (req, res) => {
   const { wxOpenId } = req.params;
   const { status, page = 1, pageSize = 20 } = req.query;
@@ -522,6 +524,56 @@ app.get("/api/orders/:wxOpenId", async (req, res) => {
   }
 });
 
+// 更新订单状态
+app.put("/api/order/status", async (req, res) => {
+  const { orderNo, status } = req.body;
+  
+  try {
+    // 参数校验
+    if (!orderNo || !status) {
+      res.send({
+        code: -1,
+        message: "订单编号和状态不能为空"
+      });
+      return;
+    }
+
+    // 验证状态值是否合法
+    const validStatus = ['waiting_pickup', 'waiting_delivery', 'cancelled', 'waiting_payment', 'in_custody','completed'];
+    if (!validStatus.includes(status)) {
+      res.send({
+        code: -1,
+        message: "无效的订单状态"
+      });
+      return;
+    }
+
+    // 查找订单
+    const order = await Order.findOne({ where: { orderNo } });
+    if (!order) {
+      res.send({
+        code: -1,
+        message: "订单不存在"
+      });
+      return;
+    }
+
+    // 更新订单状态
+    await order.update({ status });
+
+    res.send({
+      code: 0,
+      data: order
+    });
+  } catch (e) {
+    console.error('更新订单状态失败:', e);
+    res.send({
+      code: -1,
+      message: "更新订单状态失败"
+    });
+  }
+});
+
 // 获取配送时间段列表
 app.get("/api/delivery-time-slots", async (req, res) => {
   try {
@@ -537,6 +589,43 @@ app.get("/api/delivery-time-slots", async (req, res) => {
     res.send({
       code: -1,
       message: "获取配送时间段列表失败"
+    });
+  }
+});
+
+// 获取用户是否存在待支付订单
+app.get("/api/user/has-unpaid-order/:wxOpenId", async (req, res) => {
+  const { wxOpenId } = req.params;
+  
+  try {
+    // 参数校验
+    if (!wxOpenId) {
+      res.send({
+        code: -1,
+        message: "用户ID不能为空"
+      });
+      return;
+    }
+
+    // 查询该用户是否存在待支付订单
+    const unpaidOrder = await Order.findOne({
+      where: {
+        wxOpenId,
+        status: 'waiting_payment'
+      }
+    });
+
+    res.send({
+      code: 0,
+      data: {
+        hasUnpaidOrder: !!unpaidOrder
+      }
+    });
+  } catch (e) {
+    console.error('查询待支付订单失败:', e);
+    res.send({
+      code: -1,
+      message: "查询待支付订单失败"
     });
   }
 });
