@@ -2,6 +2,7 @@ const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
+const config = require("./config");
 // 修改引入语句，添加 OrderOperationLog
 const { init: initDB, Counter, User, DeliveryAddress, Order, Station, DeliveryTimeSlot, Courier, OrderOperationLog } = require("./db");
 
@@ -412,7 +413,7 @@ app.post("/api/order", async (req, res) => {
       stationId,                  // 所属快递站ID
       pickupCode,                 // 取件码
       deliveryTimeSlot,           // 配送时间段ID
-      amount: 2.00,               // 默认金额2.00
+      amount: config.order.defaultAmount,               // 默认金额2.00
       orderType,                  // 订单类型
       itemType,                   // 物品类型
       phoneTail,         // 新增手机尾号
@@ -538,22 +539,34 @@ app.put("/api/order/status", async (req, res) => {
       return;
     }
 
-    // 验证状态值是否合法
-    const validStatus = ['waiting_pickup', 'waiting_delivery', 'cancelled', 'waiting_payment', 'in_custody','completed'];
-    if (!validStatus.includes(status)) {
-      res.send({
-        code: -1,
-        message: "无效的订单状态"
-      });
-      return;
-    }
-
     // 查找订单
     const order = await Order.findOne({ where: { orderNo } });
     if (!order) {
       res.send({
         code: -1,
         message: "订单不存在"
+      });
+      return;
+    }
+
+    // 定义状态转换规则
+    const statusTransitionRules = {
+      'waiting_pickup': ['cancelled', 'waiting_delivery'],
+      'waiting_delivery': ['waiting_payment', 'in_custody'],
+      'cancelled': [],
+      'waiting_payment': [],
+      'completed': [],
+      'in_custody': ['waiting_payment']
+    };
+
+    // 获取当前状态允许转换的状态列表
+    const allowedStatus = statusTransitionRules[order.status] || [];
+
+    // 验证状态转换是否合法
+    if (!allowedStatus.includes(status)) {
+      res.send({
+        code: -1,
+        message: `当前订单状态为"${order.status}"，不允许修改为"${status}"状态`
       });
       return;
     }
@@ -630,7 +643,143 @@ app.get("/api/user/has-unpaid-order/:wxOpenId", async (req, res) => {
   }
 });
 
-const port = process.env.PORT || 80;
+// 获取配送员列表
+app.get("/api/couriers", async (req, res) => {
+  try {
+    const couriers = await Courier.findAll({
+      attributes: { exclude: ['password'] }  // 排除密码字段
+    });
+    res.send({
+      code: 0,
+      data: couriers
+    });
+  } catch (e) {
+    res.send({
+      code: -1,
+      message: "获取配送员列表失败"
+    });
+  }
+});
+
+// 检查用户是否是配送员
+app.get("/api/courier/check/:wxOpenId", async (req, res) => {
+  const { wxOpenId } = req.params;
+  try {
+    const courier = await Courier.findOne({
+      where: { wxOpenId },
+      attributes: ['id']  // 只查询ID字段即可
+    });
+    res.send({
+      code: 0,
+      data: {
+        isCourier: !!courier
+      }
+    });
+  } catch (e) {
+    res.send({
+      code: -1,
+      message: "检查配送员状态失败"
+    });
+  }
+});
+
+// 添加配送员
+app.post("/api/courier", async (req, res) => {
+  const { phone, name, password } = req.body;
+  
+  try {
+    // 参数校验
+    if (!phone || !name || !password) {
+      res.send({
+        code: -1,
+        message: "手机号、姓名和密码不能为空"
+      });
+      return;
+    }
+
+    // 检查手机号是否已存在
+    const existingCourier = await Courier.findOne({ where: { phone } });
+    if (existingCourier) {
+      res.send({
+        code: -1,
+        message: "该手机号已注册"
+      });
+      return;
+    }
+
+    // 创建配送员
+    const courier = await Courier.create({
+      phone,
+      name,
+      password,
+      status: '接单中'  // 默认状态为接单中
+    });
+
+    // 返回结果时排除密码字段
+    const { password: _, ...courierData } = courier.toJSON();
+    res.send({
+      code: 0,
+      data: courierData
+    });
+  } catch (e) {
+    res.send({
+      code: -1,
+      message: "添加配送员失败"
+    });
+  }
+});
+
+// 配送员登录
+app.post("/api/courier/login", async (req, res) => {
+  const { wxOpenId, phone, password } = req.body;
+  
+  try {
+    // 参数校验
+    if (!wxOpenId || !phone || !password) {
+      res.send({
+        code: -1,
+        message: "微信ID、手机号和密码不能为空"
+      });
+      return;
+    }
+
+    // 根据手机号查询配送员
+    const courier = await Courier.findOne({ where: { phone } });
+    if (!courier) {
+      res.send({
+        code: -1,
+        message: "配送员不存在"
+      });
+      return;
+    }
+
+    // 验证密码
+    if (courier.password !== password) {
+      res.send({
+        code: -1,
+        message: "密码错误"
+      });
+      return;
+    }
+
+    // 更新微信OpenID
+    await courier.update({ wxOpenId });
+
+    // 返回结果时排除密码字段
+    const { password: _, ...courierData } = courier.toJSON();
+    res.send({
+      code: 0,
+      data: courierData
+    });
+  } catch (e) {
+    res.send({
+      code: -1,
+      message: "配送员登录失败"
+    });
+  }
+});
+
+const port = config.system.port;
 
 async function bootstrap() {
   await initDB();

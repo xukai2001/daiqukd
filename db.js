@@ -1,11 +1,11 @@
 const { Sequelize, DataTypes } = require("sequelize");
+const config = require("./config");
 
-// 从环境变量中读取数据库配置
-const { MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_ADDRESS = "" } = process.env;
+// 从配置文件读取数据库配置
+const { username, password, address } = config.database;
+const [host, port] = address.split(":");
 
-const [host, port] = MYSQL_ADDRESS.split(":");
-
-const sequelize = new Sequelize("nodejs_demo", MYSQL_USERNAME, MYSQL_PASSWORD, {
+const sequelize = new Sequelize(config.database.dbName, username, password, {
   host,
   port,
   dialect: "mysql",
@@ -49,11 +49,22 @@ const Courier = sequelize.define("Courier", {
     unique: true,
     comment: '手机号'
   },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    comment: '登录密码'
+  },
   status: {
     type: DataTypes.ENUM('接单中', '休息中'),
     allowNull: false,
     defaultValue: '休息中',
     comment: '配送员状态'
+  },
+  wxOpenId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true,
+    comment: '微信 OpenID'
   }
 });
 
@@ -360,7 +371,8 @@ async function init() {
       await Courier.create({
         phone: '13800000000',
         name: '默认配送员',
-        status: '接单中'
+        status: '接单中',
+        password: '123456'  // 添加默认密码
       });
       console.log('已创建默认配送员账号');
     }
