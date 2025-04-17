@@ -93,13 +93,13 @@ const User = sequelize.define("User", {
   wxOpenId: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
+    primaryKey: true,  // 将 wxOpenId 改为主键，而不是使用 unique
     comment: '微信 OpenID',
   },
   wxUnionId: {
     type: DataTypes.STRING,
     allowNull: true,
-    unique: true,
+    // 移除 unique: true，因为不是必需的
     comment: '微信 UnionID',
   },
   nickname: {

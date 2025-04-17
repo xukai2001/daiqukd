@@ -333,7 +333,6 @@
     }
   }
    ```
-  ```
 ### 3. 更新订单状态
 - 接口地址 ： /api/order/status
 - 请求方式 ：PUT
@@ -342,8 +341,25 @@
   |----------|--------|------|----------------------------------------------------------------------|
   | orderNo  | string | 是   | 订单编号                                                             |
   | status   | string | 是   | 订单状态(waiting_pickup/waiting_delivery/cancelled/waiting_payment/in_custody/completed) |
-- 返回示例 ：
-  
+
+- **状态转换规则**：
+  | 当前状态        | 允许转换的状态                    |
+  |-----------------|-----------------------------------|
+  | waiting_pickup  | cancelled, waiting_delivery       |
+  | waiting_delivery| waiting_payment, in_custody       |
+  | cancelled      | 不允许转换到其他状态              |
+  | waiting_payment | 不允许转换到其他状态              |
+  | completed      | 不允许转换到其他状态              |
+  | in_custody     | waiting_payment                    |
+错误示例 ：
+```json
+{
+  "code": -1,
+  "message": "当前订单状态为\"waiting_pickup\"，不允许修改为\"completed\"状态"
+}
+ ```
+```
+- **返回示例**：
   ```json
   {
     "code": 0,
