@@ -335,6 +335,15 @@ app.get("/api/station/:stationId", async (req, res) => {
 });
 
 // 添加在文件开头的工具函数部分
+async function getDefaultCourierId() {
+  const courier = await Courier.findOne({
+    where: {
+      status: '接单中'
+    }
+  });
+  return courier ? courier.id : null;
+}
+
 function generateOrderNo() {
   return `${Date.now()}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
 }
