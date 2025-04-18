@@ -116,9 +116,74 @@ const User = sequelize.define("User", {
     type: DataTypes.STRING,
     allowNull: true,
     comment: '头像URL',
+  },
+  userType: {
+    type: DataTypes.ENUM('normal', 'vip', 'blacklist'),
+    allowNull: false,
+    defaultValue: 'normal',
+    comment: '用户类型：普通用户、VIP用户、黑名单用户'
+  },
+  remainingOrders: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    comment: '剩余下单额度'
   }
 });
-
+// 定义充值记录模型
+const RechargeRecord = sequelize.define("RechargeRecord", {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+    comment: '充值记录ID'
+  },
+  wxOpenId: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    comment: '充值用户的OpenID'
+  },
+  amount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    comment: '充值金额'
+  },
+  orderCount: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    comment: '获得下单次数'
+  },
+  status: {
+    type: DataTypes.ENUM('pending', 'success', 'failed'),
+    allowNull: false,
+    defaultValue: 'pending',
+    comment: '支付状态'
+  },
+  transactionId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: '微信支付交易号'
+  },
+  prepayId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: '微信预支付交易会话标识'
+  },
+  payTime: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: '支付完成时间'
+  }
+});
+// 建立用户和充值记录的关联关系
+User.hasMany(RechargeRecord, {
+  foreignKey: 'wxOpenId',
+  sourceKey: 'wxOpenId'
+});
+RechargeRecord.belongsTo(User, {
+  foreignKey: 'wxOpenId',
+  targetKey: 'wxOpenId'
+});
 // 定义配送地址模型
 const DeliveryAddress = sequelize.define("DeliveryAddress", {
   building: {
@@ -195,6 +260,11 @@ const Order = sequelize.define("Order", {
     unique: true,
     comment: '订单编号'
   },
+  receiverName: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    comment: '收件人姓名'
+  },
   status: {
     type: DataTypes.ENUM('waiting_pickup', 'waiting_delivery', 'cancelled', 'waiting_payment', 'in_custody', 'completed'),
     allowNull: false,
@@ -229,7 +299,7 @@ const Order = sequelize.define("Order", {
   },
   amount: {
     type: DataTypes.DECIMAL(10, 2),
-    allowNull: false,
+    allowNull: true,
     defaultValue: 0.00,
     comment: '订单金额'
   },
@@ -343,6 +413,7 @@ async function init() {
     // 按照依赖关系顺序同步模型
     await Counter.sync({ alter: true });
     await User.sync({ alter: true });
+    await RechargeRecord.sync({ alter: true });
     await Courier.sync({ alter: true });
     await Station.sync({ alter: true });
     await DeliveryAddress.sync({ alter: true });
@@ -388,6 +459,7 @@ module.exports = {
   init,
   Counter,
   User,
+  RechargeRecord,
   Courier,
   DeliveryAddress,
   Order,

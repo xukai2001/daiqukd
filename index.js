@@ -343,12 +343,14 @@ app.post("/api/order", async (req, res) => {
     deliveryTimeSlot,   // 配送时间段ID
     orderType,          // 订单类型
     itemType,           // 物品类型
-    phoneTail           // 新增手机尾号
+    phoneTail,          // 手机尾号
+    receiverName        // 收件人姓名
   } = req.body;
   
   try {
     // 参数校验
-    if (!wxOpenId || !stationId || !pickupCode || !deliveryTimeSlot || !orderType || !itemType || !phoneTail) {
+    if (!wxOpenId || !stationId || !pickupCode || !deliveryTimeSlot || 
+        !orderType || !itemType || !phoneTail || !receiverName) {
       res.send({
         code: -1,
         message: "缺少必要参数"
@@ -361,69 +363,64 @@ app.post("/api/order", async (req, res) => {
     if (!user) {
       res.send({
         code: -1,
-        message: "用户不存在"
+        message: "用户不存在，请先注册"
       });
       return;
     }
 
-    // 验证快递站是否存在
-    const station = await Station.findByPk(stationId);
-    if (!station) {
+    // 验证用户类型
+    if (user.userType === 'blacklist') {
       res.send({
         code: -1,
-        message: "快递站不存在"
+        message: "您已被列入黑名单，暂时无法下单"
       });
       return;
     }
 
-    // 验证配送时间段是否存在
-    const timeSlot = await DeliveryTimeSlot.findByPk(deliveryTimeSlot);
-    if (!timeSlot) {
+    // 检查用户是否有足够的下单额度
+    if (user.remainingOrders <= 0) {
       res.send({
         code: -1,
-        message: "配送时间段不存在"
+        message: "下单额度不足，请先充值"
       });
       return;
     }
 
-    // 获取默认配送员
-    const courier = await Courier.findOne({
-      where: {
-        status: '接单中'
-      }
-    });
+    // 开启事务
+    const t = await sequelize.transaction();
 
-    // 生成订单编号（年月日时分秒+4位随机数）
-    const now = new Date();
-    const dateStr = now.getFullYear().toString() +
-                   (now.getMonth() + 1).toString().padStart(2, '0') +
-                   now.getDate().toString().padStart(2, '0') +
-                   now.getHours().toString().padStart(2, '0') +
-                   now.getMinutes().toString().padStart(2, '0') +
-                   now.getSeconds().toString().padStart(2, '0');
-    const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    const orderNo = dateStr + randomNum;
+    try {
+      // 扣减用户下单额度
+      await user.update({
+        remainingOrders: user.remainingOrders - 1
+      }, { transaction: t });
 
-    // 创建订单
-    const order = await Order.create({
-      orderNo,                    // 系统生成的订单编号
-      status: 'waiting_pickup',   // 默认待取件状态
-      orderTime: now,             // 系统生成的下单时间
-      wxOpenId,                   // 下单用户openid
-      stationId,                  // 所属快递站ID
-      pickupCode,                 // 取件码
-      deliveryTimeSlot,           // 配送时间段ID
-      amount: config.order.defaultAmount,               // 默认金额2.00
-      orderType,                  // 订单类型
-      itemType,                   // 物品类型
-      phoneTail,         // 新增手机尾号
-      courierId: courier ? courier.id : null  // 关联默认配送员
-    });
+      // 创建订单
+      const order = await Order.create({
+        orderNo: generateOrderNo(),
+        status: 'waiting_pickup',
+        orderTime: new Date(),
+        wxOpenId,
+        stationId,
+        pickupCode,
+        deliveryTimeSlot,
+        orderType,
+        itemType,
+        phoneTail,
+        receiverName,    // 添加收件人姓名
+        courierId: await getDefaultCourierId()
+      }, { transaction: t });
 
-    res.send({
-      code: 0,
-      data: order
-    });
+      await t.commit();
+
+      res.send({
+        code: 0,
+        data: order
+      });
+    } catch (error) {
+      await t.rollback();
+      throw error;
+    }
   } catch (e) {
     console.error('创建订单失败:', e);
     res.send({
@@ -571,13 +568,37 @@ app.put("/api/order/status", async (req, res) => {
       return;
     }
 
-    // 更新订单状态
-    await order.update({ status });
+    // 开启事务
+    const t = await sequelize.transaction();
 
-    res.send({
-      code: 0,
-      data: order
-    });
+    try {
+      // 如果是取消订单，需要返还用户的下单额度
+      if (status === 'cancelled') {
+        const user = await User.findOne({ 
+          where: { wxOpenId: order.wxOpenId },
+          transaction: t 
+        });
+        
+        if (user) {
+          await user.update({
+            remainingOrders: user.remainingOrders + 1
+          }, { transaction: t });
+        }
+      }
+
+      // 更新订单状态
+      await order.update({ status }, { transaction: t });
+
+      await t.commit();
+
+      res.send({
+        code: 0,
+        data: order
+      });
+    } catch (error) {
+      await t.rollback();
+      throw error;
+    }
   } catch (e) {
     console.error('更新订单状态失败:', e);
     res.send({
@@ -775,6 +796,127 @@ app.post("/api/courier/login", async (req, res) => {
     res.send({
       code: -1,
       message: "配送员登录失败"
+    });
+  }
+});
+// 获取充值套餐列表
+app.get("/api/recharge/plans", async (req, res) => {
+  res.send({
+    code: 0,
+    data: config.recharge.plans
+  });
+});
+
+// 创建充值订单
+app.post("/api/recharge", async (req, res) => {
+  const { wxOpenId, amount } = req.body;
+  
+  try {
+    // 参数校验
+    if (!wxOpenId || !amount) {
+      res.send({
+        code: -1,
+        message: "缺少必要参数"
+      });
+      return;
+    }
+
+    // 验证用户是否存在
+    const user = await User.findOne({ where: { wxOpenId } });
+    if (!user) {
+      res.send({
+        code: -1,
+        message: "用户不存在"
+      });
+      return;
+    }
+
+    // 验证充值金额是否有效
+    const plan = config.recharge.plans.find(p => p.amount === parseFloat(amount));
+    if (!plan) {
+      res.send({
+        code: -1,
+        message: "无效的充值金额"
+      });
+      return;
+    }
+
+    // 创建充值记录
+    const recharge = await RechargeRecord.create({
+      wxOpenId,
+      amount: plan.amount,
+      orderCount: plan.orderCount,
+      status: 'pending'
+    });
+
+    res.send({
+      code: 0,
+      data: recharge
+    });
+  } catch (e) {
+    console.error('创建充值订单失败:', e);
+    res.send({
+      code: -1,
+      message: "创建充值订单失败"
+    });
+  }
+});
+
+// 充值成功回调（实际项目中需要验证微信支付签名等）
+app.post("/api/recharge/callback", async (req, res) => {
+  const { transactionId, prepayId, wxOpenId, amount } = req.body;
+  
+  try {
+    // 查找充值记录
+    const recharge = await RechargeRecord.findOne({
+      where: {
+        wxOpenId,
+        amount,
+        status: 'pending'
+      }
+    });
+
+    if (!recharge) {
+      res.send({
+        code: -1,
+        message: "充值记录不存在"
+      });
+      return;
+    }
+
+    // 开启事务
+    const t = await sequelize.transaction();
+
+    try {
+      // 更新充值记录状态
+      await recharge.update({
+        status: 'success',
+        transactionId,
+        prepayId,
+        payTime: new Date()
+      }, { transaction: t });
+
+      // 更新用户下单额度
+      const user = await User.findOne({ where: { wxOpenId }, transaction: t });
+      await user.update({
+        remainingOrders: user.remainingOrders + recharge.orderCount
+      }, { transaction: t });
+
+      await t.commit();
+
+      res.send({
+        code: 0,
+        data: recharge
+      });
+    } catch (error) {
+      await t.rollback();
+      throw error;
+    }
+  } catch (e) {
+    console.error('处理充值回调失败:', e);
+    res.send({
+      code: -1,
+      message: "处理充值回调失败"
     });
   }
 });

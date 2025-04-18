@@ -69,7 +69,9 @@
       "wxOpenId": "xxx",
       "nickname": "用户昵称",
       "phone": "手机号",
-      "avatar": "头像URL"
+      "avatar": "头像URL",
+      "userType": "normal",// 用户类型 normal-普通用户 vip-vip用户 blacklist-黑名单用户
+      "remainingOrders": 0// 剩余订单数量
     }
   }
    ```
@@ -260,8 +262,21 @@
   | orderType        | string | 是   | 订单类型     |
   | itemType         | string | 是   | 物品类型     |
   | phoneTail        | string | 是   | 手机尾号(4位)|
+  | receiverName     | string | 是   | 收件人姓名   |
+
+- **业务规则**：
+  1. 用户必须存在且不在黑名单中
+  2. 用户必须有足够的下单额度
+  3. 黑名单用户不允许下单
+
+- **错误码说明**：
+  | 错误信息                    | 说明               |
+  |----------------------------|-------------------|
+  | "用户不存在，请先注册"      | 用户未注册         |
+  | "您已被列入黑名单，暂时无法下单" | 黑名单用户        |
+  | "下单额度不足，请先充值"     | 用户额度不足       |
+
 - 返回示例 ：
-  
   ```json
   {
     "code": 0,
@@ -277,10 +292,11 @@
       "deliveryTimeSlot": 1,
       "orderType": "普通",
       "itemType": "快递",
+      "phoneTail": "5678",
+      "receiverName": "张三",
       "courierId": 1
     }
   }
-   ```
 ### 2. 获取用户订单列表
 - 接口地址 ： /api/orders/:wxOpenId
 - 请求方式 ：GET
@@ -358,149 +374,3 @@
   "message": "当前订单状态为\"waiting_pickup\"，不允许修改为\"completed\"状态"
 }
  ```
-```
-- **返回示例**：
-  ```json
-  {
-    "code": 0,
-    "data": {
-      "id": 1,
-      "orderNo": "202308150001",
-      "status": "waiting_delivery"
-    }
-  }
-   ```
-### 4. 查询用户待支付订单
-- 接口地址 ： /api/user/has-unpaid-order/:wxOpenId
-- 请求方式 ：GET
-- **路径参数**：
-  | 参数名   | 类型   | 必填 | 说明       |
-  |----------|--------|------|------------|
-  | wxOpenId | string | 是   | 微信OpenID |
-- 返回示例 ：
-  
-  ```json
-  {
-    "code": 0,
-    "data": {
-      "hasUnpaidOrder": true
-    }
-  }
-   ```
-## 配送时间段相关接口
-### 1. 获取配送时间段列表
-- 接口地址 ： /api/delivery-time-slots
-- 请求方式 ：GET
-- 返回示例 ：
-  ```json
-  {
-    "code": 0,
-    "data": [
-      {
-        "id": 1,
-        "timeSlot": "10:00-12:00"
-      },
-      {
-        "id": 2,
-        "timeSlot": "14:00-16:00"
-      }
-    ]
-  }
-   ```
-## 配送员相关接口
-
-### 1. 获取配送员列表
-- **接口地址**：`/api/couriers`
-- **请求方式**：GET
-- **返回示例**：
-  ```json
-  {
-    "code": 0,
-    "data": [
-      {
-        "id": 1,
-        "name": "配送员姓名",
-        "phone": "手机号",
-        "status": "接单中",
-        "wxOpenId": "xxx"
-      }
-    ]
-  }
-### 2. 检查用户是否是配送员
-- 接口地址 ： /api/courier/check/:wxOpenId
-- 请求方式 ：GET
--- **路径参数**：
-  | 参数名   | 类型   | 必填 | 说明       |
-  |----------|--------|------|------------|
-  | wxOpenId | string | 是   | 微信OpenID |
-- 返回示例 ：
-  
-  ```json
-  {
-    "code": 0,
-    "data": {
-      "isCourier": true
-    }
-  }
-   ```
-### 3. 添加配送员
-- 接口地址 ： /api/courier
-- 请求方式 ：POST
-- **请求参数**：
-  | 参数名   | 类型   | 必填 | 说明       |
-  |----------|--------|------|------------|
-  | phone    | string | 是   | 手机号     |
-  | name     | string | 是   | 配送员姓名 |
-  | password | string | 是   | 登录密码   |
-- 返回示例 ：
-  
-  ```json
-  {
-    "code": 0,
-    "data": {
-      "id": 1,
-      "name": "配送员姓名",
-      "phone": "手机号",
-      "status": "接单中",
-      "wxOpenId": null
-    }
-  }
-   ```
-### 4. 配送员登录
-- 接口地址 ： /api/courier/login
-- 请求方式 ：POST
-- **请求参数**：
-  | 参数名   | 类型   | 必填 | 说明       |
-  |----------|--------|------|------------|
-  | wxOpenId | string | 是   | 微信OpenID |
-  | phone    | string | 是   | 手机号     |
-  | password | string | 是   | 登录密码   |
-- 返回示例 ：
-  
-  ```json
-  {
-    "code": 0,
-    "data": {
-      "id": 1,
-      "name": "配送员姓名",
-      "phone": "手机号",
-      "status": "接单中",
-      "wxOpenId": "xxx"
-    }
-  }
-   ```
-## 通用返回格式说明
-### 成功响应
-```json
-{
-  "code": 0,
-  "data": {} // 具体的返回数据
-}
- ```
-
-### 错误响应
-```json
-{
-  "code": -1,
-  "message": "错误信息描述"
-}
