@@ -4,7 +4,7 @@ const cors = require("cors");
 const morgan = require("morgan");
 const config = require("./config");
 // 修改引入语句，添加 OrderOperationLog
-const { init: initDB, Counter, User, DeliveryAddress, Order, Station, DeliveryTimeSlot, Courier, OrderOperationLog } = require("./db");
+const { init: initDB, Counter, User, DeliveryAddress, Order, Station, DeliveryTimeSlot, Courier, OrderOperationLog, sequelize } = require("./db");
 
 const logger = morgan("tiny");
 
@@ -334,7 +334,12 @@ app.get("/api/station/:stationId", async (req, res) => {
   }
 });
 
-// 创建订单
+// 添加在文件开头的工具函数部分
+function generateOrderNo() {
+  return `${Date.now()}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+}
+
+// 在创建订单的代码中修改
 app.post("/api/order", async (req, res) => {
   const { 
     wxOpenId,           // 下单用户openid
@@ -342,8 +347,11 @@ app.post("/api/order", async (req, res) => {
     pickupCode,         // 取件码
     deliveryTimeSlot,   // 配送时间段ID
     phoneTail,          // 手机尾号
-    receiverName        // 收件人姓名
+    receiverName,       // 收件人姓名
+    orderType = 'normal',    // 订单类型，默认为普通单
+    itemType = 'normal'      // 物品类型，默认为普通物品
   } = req.body;
+  // 看后端没啥问题，我觉得问题出在你掉接口的地方
   
   try {
     // 参数校验
