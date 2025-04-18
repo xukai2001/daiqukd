@@ -459,12 +459,12 @@ module.exports = {
   init,
   Counter,
   User,
-  RechargeRecord,
-  Courier,
   DeliveryAddress,
   Order,
   Station,
-  Admin,
   DeliveryTimeSlot,
-  OrderOperationLog  // 添加这一行
+  Courier,
+  OrderOperationLog,
+  RechargeRecord,
+  sequelize  // 添加这一行
 };

@@ -608,7 +608,7 @@ app.put("/api/order/status", async (req, res) => {
     console.error('更新订单状态失败:', e);
     res.send({
       code: -1,
-      message: "更新订单状态失败"
+      message: `更新订单状态失败: ${e.message}`
     });
   }
 });
