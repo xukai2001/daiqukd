@@ -341,16 +341,13 @@ app.post("/api/order", async (req, res) => {
     stationId,          // 所属快递站ID
     pickupCode,         // 取件码
     deliveryTimeSlot,   // 配送时间段ID
-    orderType,          // 订单类型
-    itemType,           // 物品类型
     phoneTail,          // 手机尾号
     receiverName        // 收件人姓名
   } = req.body;
   
   try {
     // 参数校验
-    if (!wxOpenId || !stationId || !pickupCode || !deliveryTimeSlot || 
-        !orderType || !itemType || !phoneTail || !receiverName) {
+    if (!wxOpenId || !stationId || !pickupCode || !deliveryTimeSlot || !phoneTail || !receiverName) {
       res.send({
         code: -1,
         message: "缺少必要参数"
