@@ -63,7 +63,6 @@ const Courier = sequelize.define("Courier", {
   wxOpenId: {
     type: DataTypes.STRING,
     allowNull: true,
-    unique: true,
     comment: '微信 OpenID'
   }
 });
@@ -99,7 +98,6 @@ const User = sequelize.define("User", {
   wxUnionId: {
     type: DataTypes.STRING,
     allowNull: true,
-    // 移除 unique: true，因为不是必需的
     comment: '微信 UnionID',
   },
   nickname: {
@@ -247,7 +245,6 @@ const DeliveryTimeSlot = sequelize.define("DeliveryTimeSlot", {
   timeSlot: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
     comment: '配送时间段，如：09:00-12:00'
   }
 });
@@ -410,17 +407,24 @@ async function init() {
     await sequelize.authenticate();
     console.log('数据库连接成功');
 
+    // 修改同步选项，避免自动创建过多索引
+    const syncOptions = { 
+      alter: true,
+      // 添加索引限制
+      indexes: false 
+    };
+
     // 按照依赖关系顺序同步模型
-    await Counter.sync({ alter: true });
-    await User.sync({ alter: true });
-    await RechargeRecord.sync({ alter: true });
-    await Courier.sync({ alter: true });
-    await Station.sync({ alter: true });
-    await DeliveryAddress.sync({ alter: true });
-    await DeliveryTimeSlot.sync({ alter: true });
-    await Order.sync({ alter: true });
-    await OrderOperationLog.sync({ alter: true }); // 添加这一行
-    await Admin.sync({ alter: true });
+    await Counter.sync(syncOptions);
+    await User.sync(syncOptions);
+    await RechargeRecord.sync(syncOptions);
+    await Courier.sync(syncOptions);
+    await Station.sync(syncOptions);
+    await DeliveryAddress.sync(syncOptions);
+    await DeliveryTimeSlot.sync(syncOptions);
+    await Order.sync(syncOptions);
+    await OrderOperationLog.sync(syncOptions);
+    await Admin.sync(syncOptions);
     
     console.log('所有模型同步完成');
     
@@ -450,7 +454,8 @@ async function init() {
     
   } catch (error) {
     console.error('数据库初始化失败:', error);
-    throw error;
+    // 添加错误处理
+    process.exit(1);  // 遇到错误时退出进程
   }
 }
 

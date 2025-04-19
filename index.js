@@ -945,3 +945,11 @@ async function bootstrap() {
 }
 
 bootstrap();
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('未处理的 Promise 拒绝:', reason);
+  // 在开发环境打印更多信息
+  if (config.system.env === 'development') {
+    console.error('Promise:', promise);
+  }
+});

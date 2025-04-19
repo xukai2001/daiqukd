@@ -21,6 +21,12 @@ const config = {
       },
       retry: {
         max: 3
+      },
+      // 添加同步选项
+      sync: {
+        force: false,
+        alter: true,
+        indexes: false
       }
     }
   },
