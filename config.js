@@ -10,7 +10,19 @@ const config = {
     username: process.env.MYSQL_USERNAME,
     password: process.env.MYSQL_PASSWORD,
     address: process.env.MYSQL_ADDRESS,
-    dbName: 'nodejs_demo'
+    dbName: 'nodejs_demo',
+    options: {
+      dialect: "mysql",
+      pool: {
+        max: 5,
+        min: 0,
+        acquire: 30000,
+        idle: 10000
+      },
+      retry: {
+        max: 3
+      }
+    }
   },
 
   // 订单配置
@@ -26,10 +38,10 @@ const config = {
   //充值套菜配置
   recharge: {
     plans: [
-      { amount: 2.00, orderCount: 1, description: '充值2元获得1次下单机会' },
-      { amount: 10.00, orderCount: 6, description: '充值10元获得6次下单机会' },
-      { amount: 20.00, orderCount: 13, description: '充值20元获得13次下单机会' },
-      { amount: 30.00, orderCount: 20, description: '充值20元获得20次下单机会' }
+      { amount: 2.00, orderCount: 1, description: '￥2.00 = 1单' },
+      { amount: 10.00, orderCount: 7, description: '￥10.00 = 7单' },
+      { amount: 20.00, orderCount: 15, description: '￥20.00 = 15单' },
+      { amount: 30.00, orderCount: 20, description: '￥30.00 = 25单' }
     ]
   }
 };
