@@ -31,6 +31,7 @@ const Counter = sequelize.define("Counter", {
   },
 });
 // 定义配送员数据模型 (添加在其他模型定义之后，关联关系之前)
+// 修改 Courier 模型定义，减少索引
 const Courier = sequelize.define("Courier", {
   id: {
     type: DataTypes.INTEGER,
@@ -46,7 +47,7 @@ const Courier = sequelize.define("Courier", {
   phone: {
     type: DataTypes.STRING(20),
     allowNull: false,
-    unique: true,
+    // 移除 unique: true，改用复合索引
     comment: '手机号'
   },
   password: {
@@ -407,14 +408,13 @@ async function init() {
     await sequelize.authenticate();
     console.log('数据库连接成功');
 
-    // 修改同步选项，避免自动创建过多索引
+    // 修改同步选项
     const syncOptions = { 
       alter: true,
-      // 添加索引限制
       indexes: false 
     };
 
-    // 按照依赖关系顺序同步模型
+    // 按顺序同步模型
     await Counter.sync(syncOptions);
     await User.sync(syncOptions);
     await RechargeRecord.sync(syncOptions);
@@ -425,37 +425,29 @@ async function init() {
     await Order.sync(syncOptions);
     await OrderOperationLog.sync(syncOptions);
     await Admin.sync(syncOptions);
-    
+
+    // 修改索引创建方式
+    try {
+      // 先检查索引是否存在
+      const [indexes] = await sequelize.query(`
+        SHOW INDEX FROM Couriers WHERE Key_name = 'idx_phone_unique';
+      `);
+      
+      // 如果索引不存在才创建
+      if (indexes.length === 0) {
+        await sequelize.query(`
+          ALTER TABLE Couriers ADD UNIQUE INDEX idx_phone_unique (phone);
+        `);
+        console.log('成功创建 Couriers 表的手机号索引');
+      }
+    } catch (err) {
+      console.warn('索引操作失败:', err.message);
+    }
+
     console.log('所有模型同步完成');
-    
-    // 创建默认账号（合并到一个代码块）
-    const [adminCount, courierCount] = await Promise.all([
-      Admin.count(),
-      Courier.count()
-    ]);
-    
-    if (adminCount === 0) {
-      await Admin.create({
-        username: 'admin',
-        password: 'admin'
-      });
-      console.log('已创建默认管理员账号: admin/admin');
-    }
-    
-    if (courierCount === 0) {
-      await Courier.create({
-        phone: '13800000000',
-        name: '默认配送员',
-        status: '接单中',
-        password: '123456'  // 添加默认密码
-      });
-      console.log('已创建默认配送员账号');
-    }
-    
   } catch (error) {
     console.error('数据库初始化失败:', error);
-    // 添加错误处理
-    process.exit(1);  // 遇到错误时退出进程
+    throw error;  // 向上抛出错误
   }
 }
 
