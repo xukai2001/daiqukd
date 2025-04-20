@@ -697,11 +697,11 @@ app.get("/api/couriers", async (req, res) => {
 });
 
 // 检查用户是否是配送员
-app.get("/api/courier/check/:wxOpenId", async (req, res) => {
-  const { wxOpenId } = req.params;
+app.get("/api/courier/check/:phone", async (req, res) => {
+  const { phone } = req.params;
   try {
     const courier = await Courier.findOne({
-      where: { wxOpenId },
+      where: { phone },
       attributes: ['id']  // 只查询ID字段即可
     });
     res.send({
@@ -764,55 +764,6 @@ app.post("/api/courier", async (req, res) => {
   }
 });
 
-// 配送员登录
-app.post("/api/courier/login", async (req, res) => {
-  const { wxOpenId, phone, password } = req.body;
-  
-  try {
-    // 参数校验
-    if (!wxOpenId || !phone || !password) {
-      res.send({
-        code: -1,
-        message: "微信ID、手机号和密码不能为空"
-      });
-      return;
-    }
-
-    // 根据手机号查询配送员
-    const courier = await Courier.findOne({ where: { phone } });
-    if (!courier) {
-      res.send({
-        code: -1,
-        message: "配送员不存在"
-      });
-      return;
-    }
-
-    // 验证密码
-    if (courier.password !== password) {
-      res.send({
-        code: -1,
-        message: "密码错误"
-      });
-      return;
-    }
-
-    // 更新微信OpenID
-    await courier.update({ wxOpenId });
-
-    // 返回结果时排除密码字段
-    const { password: _, ...courierData } = courier.toJSON();
-    res.send({
-      code: 0,
-      data: courierData
-    });
-  } catch (e) {
-    res.send({
-      code: -1,
-      message: "配送员登录失败"
-    });
-  }
-});
 // 获取充值套餐列表
 app.get("/api/recharge/plans", async (req, res) => {
   res.send({

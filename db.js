@@ -47,24 +47,14 @@ const Courier = sequelize.define("Courier", {
   phone: {
     type: DataTypes.STRING(20),
     allowNull: false,
-    // 移除 unique: true，改用复合索引
+    unique: true,
     comment: '手机号'
-  },
-  password: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    comment: '登录密码'
   },
   status: {
     type: DataTypes.ENUM('接单中', '休息中'),
     allowNull: false,
     defaultValue: '休息中',
     comment: '配送员状态'
-  },
-  wxOpenId: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    comment: '微信 OpenID'
   }
 });
 
