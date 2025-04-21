@@ -636,7 +636,8 @@ app.get("/api/station/waiting-pickup-orders", async (req, res) => {
       },
       include: [{
         model: Station,
-        attributes: ['stationName', 'phone']
+        attributes: ['stationName'],
+        required: false  // 使用左连接
       }],
       group: ['stationId'],
       raw: true,
@@ -647,7 +648,6 @@ app.get("/api/station/waiting-pickup-orders", async (req, res) => {
     const formattedResult = result.map(item => ({
       stationId: item.stationId,
       stationName: item.Station.stationName,
-      phone: item.Station.phone,
       waitingPickupCount: parseInt(item.orderCount)
     }));
 
