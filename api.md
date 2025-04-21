@@ -375,6 +375,184 @@
 }
  ```
 
+### 4. 获取待取件订单列表
+- **接口地址**：`/api/orders/waiting-pickup`
+- **请求方式**：GET
+- **查询参数**：
+  | 参数名    | 类型   | 必填 | 说明                |
+  |-----------|--------|------|---------------------|
+  | phone     | string | 是   | 配送员手机号        |
+  | stationId | number | 否   | 快递站ID，不传则查询所有 |
+  | page      | number | 否   | 页码，默认1         |
+
+- **业务规则**：
+  1. 仅配送员可访问此接口
+  2. 每页固定返回50条数据
+  3. 订单按照楼栋号升序排序
+  4. 同时返回各快递站的订单统计数据
+
+- **返回示例**：
+  ```json
+  {
+    "code": 0,
+    "data": {
+      "total": 100,
+      "totalPages": 2,
+      "currentPage": 1,
+      "pageSize": 50,
+      "list": [{
+        "orderNo": "202312250001",
+        "status": "waiting_pickup",
+        "orderTime": "2023-12-25 10:00:00",
+        "pickupCode": "A123",
+        "phoneTail": "8000",
+        "receiverName": "张三",
+        "User": {
+          "wxOpenId": "xxx",
+          "nickname": "用户1",
+          "DeliveryAddress": {
+            "building": "1号楼",
+            "unit": "2单元",
+            "room": "303"
+          }
+        },
+        "Station": {
+          "stationName": "北区快递站"
+        },
+        "DeliveryTimeSlot": {
+          "timeSlot": "09:00-12:00"
+        }
+      }],
+      "stationStats": [{
+        "stationId": 1,
+        "stationName": "北区快递站",
+        "orderCount": 50
+      }]
+    }
+  }
+### 5. 获取待配送订单列表
+- **接口地址**：`/api/orders/waiting-delivery`
+- **请求方式**：GET
+- **查询参数**：
+  | 参数名    | 类型   | 必填 | 说明                |
+  |-----------|--------|------|---------------------|
+  | phone     | string | 是   | 配送员手机号        |
+  | building  | string | 否   | 楼栋号,用于筛选特定楼栋的订单 |
+  | page      | number | 否   | 页码，默认1         |
+
+- **业务规则**：
+  1. 仅配送员可访问此接口
+  2. 每页固定返回50条数据
+  3. 订单按照用户地址的单元号升序排序
+  4. 同时返回各楼栋的订单统计数据
+
+- **返回示例**：
+  ```json
+  {
+    "code": 0,
+    "data": {
+      "total": 125,                // 总订单数
+      "totalPages": 3,            // 总页数
+      "currentPage": 1,           // 当前页码
+      "pageSize": 50,             // 每页数量
+      "list": [{                  // 订单列表
+        "orderId": "12345",       // 订单ID
+        "orderNo": "202312250001", // 订单编号
+        "status": "waiting_delivery", // 订单状态
+        "orderTime": "2023-12-25 10:00:00", // 下单时间
+        "pickupCode": "A123",     // 取件码
+        "phoneTail": "1234",      // 手机尾号
+        "receiverName": "张三",    // 收件人姓名
+        "User": {                 // 下单用户信息
+          "wxOpenId": "xxx",
+          "nickname": "用户昵称",
+          "phone": "13800138000",
+          "DeliveryAddress": {     // 配送地址
+            "building": "1",       // 楼栋号
+            "unit": "2",          // 单元号
+            "room": "303"         // 房间号
+          }
+        },
+        "Station": {              // 快递站信息
+          "stationName": "北门快递站",
+          "phone": "0755-12345678"
+        },
+        "DeliveryTimeSlot": {     // 配送时间段
+          "timeSlot": "14:00-16:00"
+        }
+      }],
+      "buildingStats": [{         // 各楼栋订单统计
+        "building": "1",          // 楼栋号
+        "orderCount": 30          // 该楼栋的订单数量
+      },
+      {
+        "building": "2",
+        "orderCount": 25
+      },
+      {
+        "building": "3",
+        "orderCount": 15
+      }]
+    }
+  }
+### 6. 获取代保管订单列表
+- 接口地址 ： /api/orders/in-custody
+- 请求方式 ：GET
+- 查询参数 ：
+  
+  参数名 类型 必填 说明 phone string 是 配送员手机号 page number 否 页码，默认1
+- 业务规则 ：
+  
+  1. 仅配送员可访问此接口
+  2. 每页固定返回50条数据
+  3. 订单按照下单时间倒序排序
+- 返回示例 ：
+  
+  ```json
+  {
+    "code": 0,
+    "data": {
+      "total": 100,                // 总订单数
+      "totalPages": 2,            // 总页数
+      "currentPage": 1,           // 当前页码
+      "pageSize": 50,             // 每页数量
+      "list": [{                  // 订单列表
+        "orderId": "12345",       // 订单ID
+        "orderNo": "202312250001", // 订单编号
+        "status": "in_custody",   // 订单状态
+        "orderTime": "2023-12-25 10:00:00", // 下单时间
+        "pickupCode": "A123",     // 取件码
+        "phoneTail": "1234",      // 手机尾号
+        "receiverName": "张三",    // 收件人姓名
+        "User": {                 // 下单用户信息
+          "wxOpenId": "xxx",
+          "nickname": "用户昵称",
+          "phone": "13800138000",
+          "DeliveryAddress": {     // 配送地址
+            "building": "1",       // 楼栋号
+            "unit": "2",          // 单元号
+            "room": "303"         // 房间号
+          }
+        },
+        "Station": {              // 快递站信息
+          "stationName": "北门快递站",
+          "phone": "0755-12345678"
+        },
+        "DeliveryTimeSlot": {     // 配送时间段
+          "timeSlot": "14:00-16:00"
+        }
+      }]
+    }
+  }
+   ```
+- 错误示例 ：
+  
+  ```json
+  {
+    "code": -1,
+    "message": "您不是配送员，无权访问"
+  }
+   ```
 ## 配送员相关接口
 
 ### 1. 检查手机号是否是配送员

@@ -678,6 +678,262 @@ app.get("/api/user/has-unpaid-order/:wxOpenId", async (req, res) => {
   }
 });
 
+// 获取待取件订单列表
+app.get("/api/orders/waiting-pickup", async (req, res) => {
+  const { phone, stationId, page = 1 } = req.query;
+  const pageSize = 50;
+
+  try {
+    // 验证是否是配送员
+    const courier = await Courier.findOne({ where: { phone } });
+    if (!courier) {
+      res.send({
+        code: -1,
+        message: "您不是配送员，无权访问"
+      });
+      return;
+    }
+
+    // 构建查询条件
+    const whereCondition = {
+      status: 'waiting_pickup'
+    };
+    if (stationId) {
+      whereCondition.stationId = stationId;
+    }
+
+    // 查询订单并关联必要的表
+    const orders = await Order.findAndCountAll({
+      where: whereCondition,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+      include: [
+        {
+          model: User,
+          attributes: ['wxOpenId', 'nickname'],
+          include: [{
+            model: DeliveryAddress,
+            attributes: ['building', 'unit', 'room']
+          }]
+        },
+        {
+          model: Station,
+          attributes: ['stationName']
+        },
+        {
+          model: DeliveryTimeSlot,
+          attributes: ['timeSlot']
+        }
+      ],
+      order: [
+        [{ model: User }, { model: DeliveryAddress }, 'building', 'ASC']
+      ]
+    });
+
+    // 统计各快递站的订单数量
+    const stationStats = await Order.findAll({
+      where: whereCondition,
+      attributes: [
+        'stationId',
+        [sequelize.fn('COUNT', sequelize.col('orderId')), 'orderCount']
+      ],
+      include: [{
+        model: Station,
+        attributes: ['stationName']
+      }],
+      group: ['stationId', 'Station.stationId', 'Station.stationName']
+    });
+
+    res.send({
+      code: 0,
+      data: {
+        total: orders.count,
+        totalPages: Math.ceil(orders.count / pageSize),
+        currentPage: parseInt(page),
+        pageSize: pageSize,
+        list: orders.rows,
+        stationStats: stationStats.map(stat => ({
+          stationId: stat.stationId,
+          stationName: stat.Station.stationName,
+          orderCount: stat.getDataValue('orderCount')
+        }))
+      }
+    });
+
+  } catch (e) {
+    console.error('获取待取件订单列表失败:', e);
+    res.send({
+      code: -1,
+      message: `获取待取件订单列表失败: ${e.message}`
+    });
+  }
+});
+
+// 获取待配送订单列表
+app.get("/api/orders/waiting-delivery", async (req, res) => {
+  const { phone, building, page = 1 } = req.query;
+  const pageSize = 50;
+
+  try {
+    // 验证是否是配送员
+    const courier = await Courier.findOne({ where: { phone } });
+    if (!courier) {
+      res.send({
+        code: -1,
+        message: "您不是配送员，无权访问"
+      });
+      return;
+    }
+
+    // 构建查询条件
+    const whereCondition = {
+      status: 'waiting_delivery'
+    };
+
+    // 构建地址关联条件
+    const addressInclude = {
+      model: DeliveryAddress,
+      attributes: ['building', 'unit', 'room']
+    };
+    if (building) {
+      addressInclude.where = { building };
+    }
+
+    // 查询订单并关联必要的表
+    const orders = await Order.findAndCountAll({
+      where: whereCondition,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+      include: [
+        {
+          model: User,
+          attributes: ['wxOpenId', 'nickname', 'phone'],
+          include: [addressInclude]
+        },
+        {
+          model: Station,
+          attributes: ['stationName', 'phone']
+        },
+        {
+          model: DeliveryTimeSlot,
+          attributes: ['timeSlot']
+        }
+      ],
+      order: [
+        [{ model: User }, { model: DeliveryAddress }, 'unit', 'ASC']
+      ]
+    });
+
+    // 统计各楼栋的订单数量
+    const buildingStats = await Order.findAll({
+      where: whereCondition,
+      attributes: [
+        [sequelize.literal('`User->DeliveryAddress`.`building`'), 'building'],
+        [sequelize.fn('COUNT', sequelize.col('orderId')), 'orderCount']
+      ],
+      include: [{
+        model: User,
+        attributes: [],
+        include: [{
+          model: DeliveryAddress,
+          attributes: [],
+          where: building ? { building } : {}
+        }]
+      }],
+      group: [sequelize.literal('`User->DeliveryAddress`.`building`')]
+    });
+
+    res.send({
+      code: 0,
+      data: {
+        total: orders.count,
+        totalPages: Math.ceil(orders.count / pageSize),
+        currentPage: parseInt(page),
+        pageSize: pageSize,
+        list: orders.rows,
+        buildingStats: buildingStats.map(stat => ({
+          building: stat.getDataValue('building'),
+          orderCount: stat.getDataValue('orderCount')
+        }))
+      }
+    });
+
+  } catch (e) {
+    console.error('获取待配送订单列表失败:', e);
+    res.send({
+      code: -1,
+      message: `获取待配送订单列表失败: ${e.message}`
+    });
+  }
+});
+
+// 获取代保管订单列表
+app.get("/api/orders/in-custody", async (req, res) => {
+  const { phone, page = 1 } = req.query;
+  const pageSize = 50;
+
+  try {
+    // 验证是否是配送员
+    const courier = await Courier.findOne({ where: { phone } });
+    if (!courier) {
+      res.send({
+        code: -1,
+        message: "您不是配送员，无权访问"
+      });
+      return;
+    }
+
+    // 构建查询条件
+    const whereCondition = {
+      status: 'in_custody'
+    };
+
+    // 查询订单并关联必要的表
+    const orders = await Order.findAndCountAll({
+      where: whereCondition,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+      include: [
+        {
+          model: User,
+          attributes: ['wxOpenId', 'nickname', 'phone'],
+          include: [{
+            model: DeliveryAddress,
+            attributes: ['building', 'unit', 'room']
+          }]
+        },
+        {
+          model: Station,
+          attributes: ['stationName', 'phone']
+        },
+        {
+          model: DeliveryTimeSlot,
+          attributes: ['timeSlot']
+        }
+      ],
+      order: [['orderTime', 'DESC']]
+    });
+
+    res.send({
+      code: 0,
+      data: {
+        total: orders.count,
+        totalPages: Math.ceil(orders.count / pageSize),
+        currentPage: parseInt(page),
+        pageSize: pageSize,
+        list: orders.rows
+      }
+    });
+
+  } catch (e) {
+    console.error('获取代保管订单列表失败:', e);
+    res.send({
+      code: -1,
+      message: `获取代保管订单列表失败: ${e.message}`
+    });
+  }
+});
+
 // 获取配送员列表
 app.get("/api/couriers", async (req, res) => {
   try {
