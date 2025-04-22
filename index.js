@@ -838,7 +838,10 @@ app.get("/api/building/:building/waiting-delivery-orders", async (req, res) => {
       phoneTail: order.phoneTail,
       receiverName: order.receiverName,
       wxOpenId: order.wxOpenId, 
-      deliveryAddress: `${order.User.DeliveryAddresses[0].building}-${order.User.DeliveryAddresses[0].unit}-${order.User.DeliveryAddresses[0].room}室`,
+      userPhone: order.User?.phone || '',
+      deliveryAddress: order.User?.DeliveryAddresses?.[0] ? 
+        `${order.User.DeliveryAddresses[0].building}-${order.User.DeliveryAddresses[0].unit}-${order.User.DeliveryAddresses[0].room}室` : '',
+      stationName: order.Station?.stationName || '',
       stationName: order.Station.stationName,
       deliveryTimeSlot: order.DeliveryTimeSlot.timeSlot
     }));
