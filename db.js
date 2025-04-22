@@ -313,40 +313,29 @@ const Order = sequelize.define("Order", {
     allowNull: true,
     comment: '关联的配送员ID'
   }
+}, {
+  indexes: [
+    // 订单状态和时间的复合索引
+    {
+      name: 'idx_status_ordertime',
+      fields: ['status', 'orderTime']
+    },
+    // 外键索引
+    {
+      name: 'idx_station',
+      fields: ['stationId']
+    },
+    {
+      name: 'idx_courier',
+      fields: ['courierId']
+    },
+    {
+      name: 'idx_delivery_timeslot',
+      fields: ['deliveryTimeSlot']
+    }
+  ]
 });
 
-// 建立用户和订单的关联关系
-User.hasMany(Order, {
-  foreignKey: 'wxOpenId',
-  sourceKey: 'wxOpenId'
-});
-Order.belongsTo(User, {
-  foreignKey: 'wxOpenId',
-  targetKey: 'wxOpenId'
-});
-
-// 建立快递站和订单的关联关系
-Station.hasMany(Order, {
-  foreignKey: 'stationId',
-  sourceKey: 'stationId'
-});
-Order.belongsTo(Station, {
-  foreignKey: 'stationId',
-  targetKey: 'stationId'
-});
-
-// 建立配送员和订单的关联关系
-Courier.hasMany(Order, {
-  foreignKey: 'courierId',
-  sourceKey: 'id'
-});
-Order.belongsTo(Courier, {
-  foreignKey: 'courierId',
-  targetKey: 'id'
-});
-
-
-// 定义订单操作记录模型（添加在Order模型之后）
 const OrderOperationLog = sequelize.define("OrderOperationLog", {
   id: {
     type: DataTypes.INTEGER,
@@ -398,7 +387,7 @@ async function init() {
     await sequelize.authenticate();
     console.log('数据库连接成功');
 
-    // 修改同步选项
+    // 第一步：同步表结构
     const syncOptions = { 
       alter: true,
       indexes: false 
@@ -416,22 +405,26 @@ async function init() {
     await OrderOperationLog.sync(syncOptions);
     await Admin.sync(syncOptions);
 
-    // 修改索引创建方式
+    // 第二步：创建必要的索引
     try {
-      // 先检查索引是否存在
-      const [indexes] = await sequelize.query(`
-        SHOW INDEX FROM Couriers WHERE Key_name = 'idx_phone_unique';
+      // 为 Order 表创建复合索引
+      await sequelize.query(`
+        CREATE INDEX IF NOT EXISTS idx_status_ordertime ON Orders (status, orderTime);
       `);
-      
-      // 如果索引不存在才创建
-      if (indexes.length === 0) {
-        await sequelize.query(`
-          ALTER TABLE Couriers ADD UNIQUE INDEX idx_phone_unique (phone);
-        `);
-        console.log('成功创建 Couriers 表的手机号索引');
-      }
+
+      // 为 OrderOperationLog 表创建索引
+      await sequelize.query(`
+        CREATE INDEX IF NOT EXISTS idx_orderno ON OrderOperationLogs (orderNo);
+      `);
+
+      // 为 DeliveryAddress 表创建索引
+      await sequelize.query(`
+        CREATE INDEX IF NOT EXISTS idx_wxopenid ON DeliveryAddresses (wxOpenId);
+      `);
+
+      console.log('索引创建完成');
     } catch (err) {
-      console.warn('索引操作失败:', err.message);
+      console.warn('索引创建失败:', err.message);
     }
 
     console.log('所有模型同步完成');
