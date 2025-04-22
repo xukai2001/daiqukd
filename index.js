@@ -786,7 +786,7 @@ app.get("/api/building/waiting-delivery-orders", async (req, res) => {
 });
 
 // 获取指定楼栋的待配送订单列表
-app.get("/api/building/:building/waiting-delivery-orders", async (req, res) => {
+app.get("/api/buildings/:building/waiting-delivery-orders", async (req, res) => {
   const { building } = req.params;
   
   try {
@@ -799,13 +799,15 @@ app.get("/api/building/:building/waiting-delivery-orders", async (req, res) => {
         {
           model: User,
           attributes: ['phone'], // 获取用户电话
+          required: true,  // 确保必须有用户
           include: [
             {
               model: DeliveryAddress,
               where: {
                 building: building
               },
-              attributes: ['building', 'unit', 'room']
+              attributes: ['building', 'unit', 'room'],
+              required: true  // 确保必须有地址
             }
           ]
         },
