@@ -639,7 +639,7 @@ app.get("/api/station/waiting-pickup-orders", async (req, res) => {
         attributes: ['stationName',],
         required: true
       }],
-      group: ['stationId', 'Station.stationName'],
+      group: ['stationId',  'Station.stationId','Station.stationName'],
       raw: true
     });
 
