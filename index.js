@@ -625,19 +625,6 @@ app.put("/api/order/status", async (req, res) => {
 // 获取各快递站待取件订单数量
 app.get("/api/station/waiting-pickup-orders", async (req, res) => {
   try {
-    // 先获取所有快递站
-    const stations = await Station.findAll({
-      attributes: ['stationId', 'stationName']  // 确保使用正确的主键名
-    });
-
-    if (!stations || stations.length === 0) {
-      res.send({
-        code: -1,
-        message: "快递站不存在"
-      });
-      return;
-    }
-
     // 使用 Sequelize 的分组查询功能
     const result = await Order.findAll({
       attributes: [
@@ -649,23 +636,19 @@ app.get("/api/station/waiting-pickup-orders", async (req, res) => {
       },
       include: [{
         model: Station,
-        attributes: ['stationName'],
-        required: false  // 改为 false，使用左连接
+        attributes: ['stationName',],
+        required: true
       }],
       group: ['stationId', 'Station.stationName'],
-      raw: true,
-      nest: true
+      raw: true
     });
 
-    // 格式化返回数据，确保所有快递站都有数据
-    const formattedResult = stations.map(station => {
-      const stationData = result.find(item => item.stationId === station.stationId);
-      return {
-        stationId: station.stationId,
-        stationName: station.stationName,
-        waitingPickupCount: stationData ? parseInt(stationData.orderCount) : 0
-      };
-    });
+    // 格式化返回数据
+    const formattedResult = result.map(item => ({
+      stationId: item.stationId,
+      stationName: item['Station.stationName'],
+      waitingPickupCount: parseInt(item.orderCount)
+    }));
 
     res.send({
       code: 0,
@@ -675,10 +658,11 @@ app.get("/api/station/waiting-pickup-orders", async (req, res) => {
     console.error('获取待取件订单统计失败:', e);
     res.send({
       code: -1,
-      message: "获取待取件订单统计失败: " + e.message  // 添加具体错误信息便于调试
+      message: "获取待取件订单统计失败"
     });
   }
 });
+
 // 获取各楼栋待配送订单数量
 app.get("/api/building/waiting-delivery-orders", async (req, res) => {
   try {
