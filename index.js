@@ -637,9 +637,10 @@ app.get("/api/station/waiting-pickup-orders", async (req, res) => {
       include: [{
         model: Station,
         attributes: ['stationName'],
-        required: false  // 使用左连接
+        required: true,
+        foreignKey: 'stationId'   // 使用左连接
       }],
-      group: ['stationId'],
+      group: ['stationId','Station.stationName'],
       raw: true,
       nest: true
     });
