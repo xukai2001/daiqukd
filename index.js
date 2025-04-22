@@ -798,7 +798,7 @@ app.get("/api/building/:building/waiting-delivery-orders", async (req, res) => {
       include: [
         {
           model: User,
-          attributes: ['wxOpenId'], // 获取用户电话
+          attributes: ['phone'], // 获取用户电话
           include: [
             {
               model: DeliveryAddress,
@@ -825,7 +825,6 @@ app.get("/api/building/:building/waiting-delivery-orders", async (req, res) => {
         'pickupCode',
         'phoneTail',
         'receiverName',
-        'wxOpenId'  // 确保获取wxOpenId字段
       ]
     });
 
@@ -837,7 +836,6 @@ app.get("/api/building/:building/waiting-delivery-orders", async (req, res) => {
       pickupCode: order.pickupCode,
       phoneTail: order.phoneTail,
       receiverName: order.receiverName,
-      wxOpenId: order.wxOpenId, 
       userPhone: order.User?.phone || '',
       deliveryAddress: order.User?.DeliveryAddresses?.[0] ? 
         `${order.User.DeliveryAddresses[0].building}-${order.User.DeliveryAddresses[0].unit}-${order.User.DeliveryAddresses[0].room}室` : '',
