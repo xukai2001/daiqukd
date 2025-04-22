@@ -663,6 +663,83 @@ app.get("/api/stations/waiting-pickup-orders", async (req, res) => {
   }
 });
 
+// 根据快递站ID获取待取件订单列表
+app.get("/api/station/:stationId/waiting-pickup-orders", async (req, res) => {
+  const { stationId } = req.params;
+  
+  try {
+    // 参数校验
+    if (!stationId) {
+      res.send({
+        code: -1,
+        message: "快递站ID不能为空"
+      });
+      return;
+    }
+
+    // 查询订单列表
+    const orders = await Order.findAll({
+      where: {
+        stationId,
+        status: 'waiting_pickup'
+      },
+      include: [
+        {
+          model: User,
+          attributes: ['phone'],
+          include: [{
+            model: DeliveryAddress,
+            attributes: ['building', 'unit', 'room']
+          }]
+        },
+        {
+          model: Station,
+          attributes: ['stationName']
+        },
+        {
+          model: DeliveryTimeSlot,
+          attributes: ['timeSlot']
+        }
+      ],
+      attributes: [
+        'orderNo',
+        'orderTime',
+        'status',
+        'pickupCode',
+        'phoneTail',
+        'receiverName'
+      ],
+      order: [['orderTime', 'DESC']]  // 按下单时间倒序排列
+    });
+
+    // 格式化返回数据
+    const formattedOrders = orders.map(order => ({
+      orderNo: order.orderNo,
+      orderTime: order.orderTime.toISOString().split('T')[0],
+      status: order.status,
+      pickupCode: order.pickupCode,
+      phoneTail: order.phoneTail,
+      receiverName: order.receiverName,
+      userPhone: order.User?.phone || '',
+      deliveryAddress: order.User?.DeliveryAddresses?.[0] ? 
+        `${order.User.DeliveryAddresses[0].building}-${order.User.DeliveryAddresses[0].unit}-${order.User.DeliveryAddresses[0].room}室` : '',
+      stationName: order.Station?.stationName || '',
+      deliveryTimeSlot: order.DeliveryTimeSlot?.timeSlot || ''
+    }));
+
+    res.send({
+      code: 0,
+      data: formattedOrders
+    });
+  } catch (e) {
+    console.error('获取待取件订单列表失败:', e);
+    res.send({
+      code: -1,
+      message: "获取待取件订单列表失败"
+    });
+  }
+});
+
 // 获取各楼栋待配送订单数量
 app.get("/api/building/waiting-delivery-orders", async (req, res) => {
   try {
@@ -707,6 +784,202 @@ app.get("/api/building/waiting-delivery-orders", async (req, res) => {
     });
   }
 });
+
+// 获取指定楼栋的待配送订单列表
+app.get("/api/building/:building/waiting-delivery-orders", async (req, res) => {
+  const { building } = req.params;
+  
+  try {
+    // 查询指定楼栋的待配送订单
+    const orders = await Order.findAll({
+      where: {
+        status: 'waiting_delivery'
+      },
+      include: [
+        {
+          model: User,
+          attributes: ['phone'], // 获取用户电话
+          include: [
+            {
+              model: DeliveryAddress,
+              where: {
+                building: building
+              },
+              attributes: ['building', 'unit', 'room']
+            }
+          ]
+        },
+        {
+          model: Station,
+          attributes: ['stationName']
+        },
+        {
+          model: DeliveryTimeSlot,
+          attributes: ['timeSlot']
+        }
+      ],
+      attributes: [
+        'orderNo',
+        'orderTime',
+        'status',
+        'pickupCode',
+        'phoneTail',
+        'receiverName'
+      ]
+    });
+
+    // 格式化返回数据
+    const formattedOrders = orders.map(order => ({
+      orderNo: order.orderNo,
+      orderTime: order.orderTime.toISOString().split('T')[0],
+      status: order.status,
+      pickupCode: order.pickupCode,
+      phoneTail: order.phoneTail,
+      receiverName: order.receiverName,
+      userPhone: order.User.phone,
+      deliveryAddress: `${order.User.DeliveryAddresses[0].building}-${order.User.DeliveryAddresses[0].unit}-${order.User.DeliveryAddresses[0].room}室`,
+      stationName: order.Station.stationName,
+      deliveryTimeSlot: order.DeliveryTimeSlot.timeSlot
+    }));
+
+    res.send({
+      code: 0,
+      data: formattedOrders
+    });
+  } catch (e) {
+    console.error('获取待配送订单列表失败:', e);
+    res.send({
+      code: -1,
+      message: "获取待配送订单列表失败"
+    });
+  }
+});
+
+// 获取代保管订单列表
+app.get("/api/orders/in-custody", async (req, res) => {
+  try {
+    const orders = await Order.findAll({
+      where: {
+        status: 'in_custody'
+      },
+      include: [
+        {
+          model: User,
+          attributes: ['phone']
+        },
+        {
+          model: DeliveryAddress,
+          attributes: ['building', 'unit', 'room']
+        },
+        {
+          model: Station,
+          attributes: ['stationName']
+        },
+        {
+          model: DeliveryTimeSlot,
+          attributes: ['timeSlot']
+        }
+      ],
+      attributes: [
+        'orderNo',
+        'orderTime',
+        'status',
+        'pickupCode',
+        'phoneTail',
+        'receiverName'
+      ]
+    });
+
+    // 格式化返回数据
+    const formattedOrders = orders.map(order => ({
+      orderNo: order.orderNo,
+      orderTime: order.orderTime.toISOString().split('T')[0],
+      status: order.status,
+      pickupCode: order.pickupCode,
+      phoneTail: order.phoneTail,
+      receiverName: order.receiverName,
+      userPhone: order.User ? order.User.phone : null,
+      deliveryAddress: order.DeliveryAddress ? 
+        `${order.DeliveryAddress.building}-${order.DeliveryAddress.unit}-${order.DeliveryAddress.room}` : null,
+      stationName: order.Station ? order.Station.stationName : null,
+      deliveryTimeSlot: order.DeliveryTimeSlot ? order.DeliveryTimeSlot.timeSlot : null
+    }));
+
+    res.send({
+      code: 0,
+      data: formattedOrders
+    });
+  } catch (e) {
+    console.error('获取代保管订单列表失败:', e);
+    res.send({
+      code: -1,
+      message: "获取代保管订单列表失败"
+    });
+  }
+});
+
+// 获取已取消和已完成订单列表
+app.get("/api/orders/completed-cancelled", async (req, res) => {
+  try {
+    const orders = await Order.findAll({
+      where: {
+        status: ['cancelled', 'completed']  // 筛选已取消和已完成的订单
+      },
+      include: [
+        {
+          model: User,
+          attributes: ['phone']  // 获取用户电话号码
+        },
+        {
+          model: DeliveryAddress,  // 获取配送地址
+          attributes: ['building', 'unit', 'room']
+        },
+        {
+          model: Station,  // 获取快递站信息
+          attributes: ['stationName']
+        },
+        {
+          model: DeliveryTimeSlot,  // 获取配送时间段
+          attributes: ['timeSlot']
+        }
+      ],
+      order: [['orderTime', 'DESC']]  // 按下单时间倒序排序
+    });
+
+    // 格式化返回数据
+    const formattedOrders = orders.map(order => {
+      const addressStr = order.DeliveryAddress 
+        ? `${order.DeliveryAddress.building}-${order.DeliveryAddress.unit}-${order.DeliveryAddress.room}`
+        : '';
+
+      return {
+        orderNo: order.orderNo,
+        orderTime: order.orderTime.toISOString().split('T')[0],
+        status: order.status,
+        pickupCode: order.pickupCode,
+        phoneTail: order.phoneTail,
+        receiverName: order.receiverName,
+        userPhone: order.User ? order.User.phone : null,
+        deliveryAddress: addressStr,
+        stationName: order.Station ? order.Station.stationName : null,
+        deliveryTimeSlot: order.DeliveryTimeSlot ? order.DeliveryTimeSlot.timeSlot : null
+      };
+    });
+
+    res.send({
+      code: 0,
+      data: formattedOrders
+    });
+  } catch (error) {
+    console.error('获取已完成和已取消订单列表失败:', error);
+    res.send({
+      code: -1,
+      message: '获取订单列表失败'
+    });
+  }
+});
+
+// ... existing code ...
 // 获取配送时间段列表
 app.get("/api/delivery-time-slots", async (req, res) => {
   try {
@@ -725,6 +998,7 @@ app.get("/api/delivery-time-slots", async (req, res) => {
     });
   }
 });
+
 
 // 获取用户是否存在待支付订单
 app.get("/api/user/has-unpaid-order/:wxOpenId", async (req, res) => {

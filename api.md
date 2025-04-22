@@ -375,7 +375,7 @@
 }
    ```
 ### 4. 获取各快递站待取件订单数量
-- **接口地址**：`/api/station/waiting-pickup-orders`
+- **接口地址**：`/api/stations/waiting-pickup-orders`
 - **请求方式**：GET
 - **请求参数**：无
 
@@ -410,6 +410,163 @@
     ]
   }
    ```
+// ... existing code ...
+### 6. 获取快递站待取件订单列表
+- **接口地址**：`/api/station/:stationId/waiting-pickup-orders`
+- **请求方式**：GET
+- **路径参数**：
+  | 参数名    | 类型   | 必填 | 说明     |
+  |-----------|--------|------|----------|
+  | stationId | number | 是   | 快递站ID |
+
+- **返回示例**：
+  ```json
+  {
+    "code": 0,
+    "data": [
+      {
+        "orderNo": "202308150001",
+        "orderTime": "2023-08-15",
+        "status": "waiting_pickup",
+        "pickupCode": "A123",
+        "phoneTail": "5678",
+        "receiverName": "张三",
+        "userPhone": "13800138000",
+        "deliveryAddress": "1栋-2单元-303室",
+        "stationName": "快递站名称",
+        "deliveryTimeSlot": "10:00-12:00"
+      }
+    ]
+  }
+
+### 7. 获取指定楼栋待配送订单列表
+- 接口地址 ： /api/building/:building/waiting-delivery-orders
+- 请求方式 ：GET
+- 路径参数 ：
+  
+  参数名 类型 必填 说明 building string 是 楼栋号
+- 返回示例 ：
+  
+  ```json
+  {
+    "code": 0,
+    "data": [
+      {
+        "orderNo": "202308150001",
+        "orderTime": "2023-08-15",
+        "status": "waiting_delivery",
+        "pickupCode": "A123",
+        "phoneTail": "5678",
+        "receiverName": "张三",
+        "userPhone": "13800138000",
+        "deliveryAddress": "1栋-2单元-303室",
+        "stationName": "快递站名称",
+        "deliveryTimeSlot": "10:00-12:00"
+      }
+    ]
+  }
+   ```
+- 错误示例 ：
+  
+  ```json
+  {
+    "code": -1,
+    "message": "获取待配送订单列表失败"
+  }
+   ```
+- 返回字段说明 ：
+  
+  字段名 类型 说明 orderNo string 订单编号 orderTime string 下单时间(YYYY-MM-DD) status string 订单状态 pickupCode string 取件码 phoneTail string 手机尾号 receiverName string 收件人姓名 userPhone string 用户手机号 deliveryAddress string 配送地址 stationName string 快递站名称 deliveryTimeSlot string 配送时间段
+- 业务说明 ：
+  
+  1. 该接口仅返回状态为"待配送"(waiting_delivery)的订单
+  2. 订单按照下单时间排序
+  3. 配送地址格式为：楼栋-单元-房间号
+
+### 8. 获取代保管订单列表
+- 接口地址 ： /api/orders/in-custody
+- 请求方式 ：GET
+- 请求参数 ：无
+- 返回示例 ：
+```json
+{
+  "code": 0,
+  "data": [
+    {
+      "orderNo": "202308150001",
+      "orderTime": "2023-08-15",
+      "status": "in_custody",
+      "pickupCode": "A123",
+      "phoneTail": "5678",
+      "receiverName": "张三",
+      "userPhone": "13800138000",
+      "deliveryAddress": "1栋-2单元-303室",
+      "stationName": "快递站名称",
+      "deliveryTimeSlot": "10:00-12:00"
+    }
+  ]
+}
+ ```
+
+- 错误示例 ：
+```json
+{
+  "code": -1,
+  "message": "获取代保管订单列表失败"
+}
+ ```
+
+- 返回字段说明 ：
+  
+  字段名 类型 说明 orderNo string 订单编号 orderTime string 下单时间 status string 订单状态 pickupCode string 取件码 phoneTail string 手机尾号 receiverName string 收件人姓名 userPhone string 用户手机号 deliveryAddress string 配送地址(格式:楼栋-单元-房间号) stationName string 快递站名称 deliveryTimeSlot string 配送时间段
+- 业务说明 ：
+  
+  1. 该接口仅返回状态为"代保管"(in_custody)的订单
+  2. 返回的订单信息包含了用户、地址、快递站和配送时间段等相关信息
+  3. 配送地址格式为：楼栋-单元-房间号
+
+### 9. 获取已完成和已取消订单列表
+- 接口地址 ： /api/orders/completed-cancelled
+- 请求方式 ：GET
+- 请求参数 ：无
+- 返回示例 ：
+  
+  ```json
+  {
+    "code": 0,
+    "data": [
+      {
+        "orderNo": "202308150001",
+        "orderTime": "2023-08-15",
+        "status": "completed",
+        "pickupCode": "A123",
+        "phoneTail": "5678",
+        "receiverName": "张三",
+        "userPhone": "13800138000",
+        "deliveryAddress": "1栋-2单元-303室",
+        "stationName": "快递站名称",
+        "deliveryTimeSlot": "10:00-12:00"
+      }
+    ]
+  }
+   ```
+- 错误示例 ：
+  
+  ```json
+  {
+    "code": -1,
+    "message": "获取订单列表失败"
+  }
+   ```
+- 返回字段说明 ：
+  
+  字段名 类型 说明 orderNo string 订单编号 orderTime string 下单时间(YYYY-MM-DD) status string 订单状态(completed/cancelled) pickupCode string 取件码 phoneTail string 手机尾号 receiverName string 收件人姓名 userPhone string 用户手机号 deliveryAddress string 配送地址(格式:楼栋-单元-房间号) stationName string 快递站名称 deliveryTimeSlot string 配送时间段
+- 业务说明 ：
+  
+  1. 该接口仅返回状态为"已完成"(completed)和"已取消"(cancelled)的订单
+  2. 订单按照下单时间倒序排序
+  3. 配送地址格式为：楼栋-单元-房间号
+  4. 返回的订单信息包含了用户、地址、快递站和配送时间段等相关信息
 ## 配送员相关接口
 
 ### 1. 检查手机号是否是配送员
