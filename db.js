@@ -313,29 +313,40 @@ const Order = sequelize.define("Order", {
     allowNull: true,
     comment: '关联的配送员ID'
   }
-}, {
-  indexes: [
-    // 订单状态和时间的复合索引
-    {
-      name: 'idx_status_ordertime',
-      fields: ['status', 'orderTime']
-    },
-    // 外键索引
-    {
-      name: 'idx_station',
-      fields: ['stationId']
-    },
-    {
-      name: 'idx_courier',
-      fields: ['courierId']
-    },
-    {
-      name: 'idx_delivery_timeslot',
-      fields: ['deliveryTimeSlot']
-    }
-  ]
 });
 
+// 建立用户和订单的关联关系
+User.hasMany(Order, {
+  foreignKey: 'wxOpenId',
+  sourceKey: 'wxOpenId'
+});
+Order.belongsTo(User, {
+  foreignKey: 'wxOpenId',
+  targetKey: 'wxOpenId'
+});
+
+// 建立快递站和订单的关联关系
+Station.hasMany(Order, {
+  foreignKey: 'stationId',
+  sourceKey: 'stationId'
+});
+Order.belongsTo(Station, {
+  foreignKey: 'stationId',
+  targetKey: 'stationId'
+});
+
+// 建立配送员和订单的关联关系
+Courier.hasMany(Order, {
+  foreignKey: 'courierId',
+  sourceKey: 'id'
+});
+Order.belongsTo(Courier, {
+  foreignKey: 'courierId',
+  targetKey: 'id'
+});
+
+
+// 定义订单操作记录模型（添加在Order模型之后）
 const OrderOperationLog = sequelize.define("OrderOperationLog", {
   id: {
     type: DataTypes.INTEGER,
@@ -387,10 +398,10 @@ async function init() {
     await sequelize.authenticate();
     console.log('数据库连接成功');
 
-    // 第一步：同步表结构
+    // 修改同步选项
     const syncOptions = { 
       alter: true,
-      indexes: true  // 改为 true，让 Sequelize 自动管理索引
+      indexes: false 
     };
 
     // 按顺序同步模型
@@ -405,10 +416,28 @@ async function init() {
     await OrderOperationLog.sync(syncOptions);
     await Admin.sync(syncOptions);
 
+    // 修改索引创建方式
+    try {
+      // 先检查索引是否存在
+      const [indexes] = await sequelize.query(`
+        SHOW INDEX FROM Couriers WHERE Key_name = 'idx_phone_unique';
+      `);
+      
+      // 如果索引不存在才创建
+      if (indexes.length === 0) {
+        await sequelize.query(`
+          ALTER TABLE Couriers ADD UNIQUE INDEX idx_phone_unique (phone);
+        `);
+        console.log('成功创建 Couriers 表的手机号索引');
+      }
+    } catch (err) {
+      console.warn('索引操作失败:', err.message);
+    }
+
     console.log('所有模型同步完成');
   } catch (error) {
     console.error('数据库初始化失败:', error);
-    throw error;
+    throw error;  // 向上抛出错误
   }
 }
 
