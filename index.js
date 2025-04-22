@@ -623,7 +623,7 @@ app.put("/api/order/status", async (req, res) => {
 });
 
 // 获取各快递站待取件订单数量
-app.get("/api/station/waiting-pickup-orders", async (req, res) => {
+app.get("/api/stations/waiting-pickup-orders", async (req, res) => {
   try {
     // 使用 Sequelize 的分组查询功能
     const result = await Order.findAll({
