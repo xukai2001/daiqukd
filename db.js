@@ -390,7 +390,7 @@ async function init() {
     // 第一步：同步表结构
     const syncOptions = { 
       alter: true,
-      indexes: false 
+      indexes: true  // 改为 true，让 Sequelize 自动管理索引
     };
 
     // 按顺序同步模型
@@ -405,32 +405,10 @@ async function init() {
     await OrderOperationLog.sync(syncOptions);
     await Admin.sync(syncOptions);
 
-    // 第二步：创建必要的索引
-    try {
-      // 为 Order 表创建复合索引
-      await sequelize.query(`
-        CREATE INDEX IF NOT EXISTS idx_status_ordertime ON Orders (status, orderTime);
-      `);
-
-      // 为 OrderOperationLog 表创建索引
-      await sequelize.query(`
-        CREATE INDEX IF NOT EXISTS idx_orderno ON OrderOperationLogs (orderNo);
-      `);
-
-      // 为 DeliveryAddress 表创建索引
-      await sequelize.query(`
-        CREATE INDEX IF NOT EXISTS idx_wxopenid ON DeliveryAddresses (wxOpenId);
-      `);
-
-      console.log('索引创建完成');
-    } catch (err) {
-      console.warn('索引创建失败:', err.message);
-    }
-
     console.log('所有模型同步完成');
   } catch (error) {
     console.error('数据库初始化失败:', error);
-    throw error;  // 向上抛出错误
+    throw error;
   }
 }
 
